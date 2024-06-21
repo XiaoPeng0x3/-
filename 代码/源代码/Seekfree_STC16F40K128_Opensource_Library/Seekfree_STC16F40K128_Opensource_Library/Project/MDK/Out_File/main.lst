@@ -1,0 +1,770 @@
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE main
+OBJECT MODULE PLACED IN .\Out_File\main.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\USER\src\main.c XSMALL INTR2 WARNINGLEVEL(3) BROWSE INCDIR(..\..\Li
+                    -braries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src
+                    -) DEBUG PRINT(.\Out_File\main.lst) TABS(2) OBJECT(.\Out_File\main.obj) 
+
+stmt  level    source
+
+    1          #include "headfile.h"
+    2          
+    3          //定义按键引脚
+    4          #define KEY1_PIN    P70
+    5          #define KEY2_PIN    P71
+    6          #define KEY3_PIN    P72
+    7          #define KEY4_PIN    P73
+    8          //定义拨码开关引脚
+    9          #define SW1_PIN     P75
+   10          #define SW2_PIN     P76
+   11          
+   12          #define Hall        P43
+   13          #define Hall1       P26
+   14          #define Mot_A P62
+   15          #define Mot_B P65
+   16          //拨码开关状态变量
+   17          uint8 sw1_status;
+   18          uint8 sw2_status;
+   19          
+   20          //开关状态变量
+   21          uint8 key1_status = 1;
+   22          uint8 key2_status = 1;
+   23          uint8 key3_status = 1;
+   24          uint8 key4_status = 1;
+   25          
+   26          //上一次开关状态变量
+   27          uint8 key1_last_status;
+   28          uint8 key2_last_status;
+   29          uint8 key3_last_status;
+   30          uint8 key4_last_status;
+   31          
+   32          //开关标志位
+   33          uint8 key1_flag;
+   34          uint8 key2_flag;
+   35          uint8 key3_flag;
+   36          uint8 key4_flag;
+   37          
+   38          uint8 test1=0,test2=0,test3=0,test4=0;
+   39          
+   40          /*.....舵机参数.....*/
+   41          uint16  steering=910; 
+   42          int     L_max_steering=1020;
+   43          int     R_max_steering=810;
+   44          int16   xunhuan_flag=0;
+   45          int16   L,M,R,R1,K,J;
+   46          int16   My_Direction_NowError;
+   47          int16   My_Direction_lastError;
+   48          int16   My_Direction_addError;
+   49          int16   My_Direction_SumError;
+   50          float   My_Direction_KP=3.5; 
+   51          float   My_Direction_KD=2.4;
+   52          /*..........*/
+   53          
+   54          int i_add_timer=0;
+   55          
+   56          
+   57          /*******timer***********/
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 2   
+
+   58          
+   59          int timer_2=0;
+   60          int timer_4S=0;
+   61          int timer_4A=0;
+   62          int timer_4huan1=0;
+   63          int timer_4huan2=0;
+   64          int timer_4huan3=0;
+   65          /**********************/
+   66          
+   67          
+   68          /************ 元素识别 **************/
+   69          //环岛
+   70          uint16  hd_flag_cy=0;
+   71          uint16  hd_flag_yu1;
+   72          uint16  hd_flag_yu2;
+   73          uint16  hd_flag_go;
+   74          uint16  hd_flag_y_cy=0;
+   75          
+   76          uint16  hd_flag_a=0;
+   77          uint16  hd_flag_b=0;
+   78          
+   79          
+   80          
+   81          //右环岛
+   82          uint16  hd_flag_cy_r=0;
+   83          uint16  hd_flag_yu_r;
+   84          uint16  hd_flag_go_r;
+   85          
+   86          int16 hd_L_max_y=530;
+   87          int16 hd_L_min_y=430;
+   88          
+   89          int16 hd_M_max_y=1000;
+   90          int16 hd_M_min_y=850;
+   91          
+   92          int16 hd_R_max_y=650;
+   93          int16 hd_R_min_y=500;
+   94          
+   95          int16 hd_K_max_y=930;
+   96          int16 hd_K_min_y=600;   
+   97          
+   98          int16 hd_J_max_y=1000;
+   99          int16 hd_J_min_y=880;
+  100              /*环岛阈值*/
+  101          int16 hd_L_max=900;
+  102          int16 hd_L_min=400;
+  103          
+  104          int16 hd_M_max=720;
+  105          int16 hd_M_min=390;
+  106          
+  107          int16 hd_R_max=700;
+  108          int16 hd_R_min=200;
+  109          
+  110          int16 hd_K_max=1000;
+  111          int16 hd_K_min=600;   
+  112          
+  113          int16 hd_J_max=1000;
+  114          int16 hd_J_min=230;
+  115          
+  116          //三岔
+  117          uint16  sc_y_flag_cy;   //预处理采样flag
+  118          uint16  sc_flag_cy;     //采样flag
+  119          uint16  sc_flag_r;    
+  120          uint16  sc_flag_l;
+  121          uint16  sc_flag_yu=0;
+  122          
+  123            /*预处理阈值*/
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 3   
+
+  124          int16   sc_y_L_max=220;
+  125          int16   sc_y_L_min=130;
+  126          
+  127          int16   sc_y_M_max=330;
+  128          int16   sc_y_M_min=50;
+  129          
+  130          int16   sc_y_R_max=300;
+  131          int16   sc_y_R_min=150;
+  132          
+  133          int16   sc_y_K_max=450;
+  134          int16   sc_y_K_min=230;
+  135          
+  136          int16   sc_y_J_max=700;
+  137          int16   sc_y_J_min=330;
+  138          
+  139            /*进三岔阈值*/
+  140          int16   sc_L_max=200;
+  141          int16   sc_L_min=80;
+  142          
+  143          int16   sc_M_max=150;
+  144          int16   sc_M_min=60;
+  145          
+  146          int16   sc_R_max=210;
+  147          int16   sc_R_min=100;
+  148          
+  149          int16   sc_K_max=350;
+  150          int16   sc_K_min=180; 
+  151          //进三岔前偏右
+  152          int16   sc_L_max_r=230;
+  153          int16   sc_L_min_r=150;
+  154          
+  155          int16   sc_M_max_r=80;
+  156          int16   sc_M_min_r=190;
+  157          
+  158          int16   sc_R_max_r=200;
+  159          int16   sc_R_min_r=90;
+  160          
+  161          int16   sc_K_max_r=340;
+  162          int16   sc_K_min_r=500; 
+  163          //出入库
+  164          int16 go_out=0;
+  165          int16 go_in=0;
+  166          /*...电机参数..*/
+  167          #define DIR1 P35
+  168          #define DIR2 P53
+  169          #define BEEP P77
+  170          uint8 Statu=2;
+  171          int16 speed1 = 0;
+  172          int16 speed2 = 0;
+  173          float Current_speed=0;
+  174          int16 Out_PWM=0; //输出占空比
+  175          float error,error_pre=0;
+  176          int I_add=0;  //积分
+  177          int16 dutyL=0;//左电机占空比
+  178          int16 dutyR=0;//右电机占空比
+  179          int zheng_zhuan_flag=0;
+  180          int fan_zhuan_flag=0;
+  181          int16 duty=2000;
+  182          int16 duty_x=2600;
+  183          float Motor_P=5;
+  184          float Motor_I=0.1;
+  185          extern int16 speed=450;
+  186          extern int8 RUN;
+  187          extern uint8 Dir;
+  188          int  ting_flag=0;
+  189          /*...............*/
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 4   
+
+  190          
+  191          
+  192          int My_Direction_addError_i=0;
+  193          int shizi_i=0;
+  194          int L_huandao_i=0;
+  195          int R_huandao_i=0;
+  196          int16  My_Direction_Pre1_Error[4];
+  197          int16 My_Direction_Direct_Parameter;
+  198          uint16 Price_PWM;
+  199          
+  200          void DJ_output()
+  201          {
+  202   1        if(DIR1 == 1)//读取编码器方向
+  203   1        {
+  204   2          speed1 = 2*ctimer_count_read(CTIM0_P34);//
+  205   2        }
+  206   1        else
+  207   1        {
+  208   2          speed1 = 2*ctimer_count_read(CTIM0_P34) * -1;
+  209   2        }
+  210   1        ctimer_count_clean(CTIM0_P34);
+  211   1        if(DIR2 == 1)  //输出高电平，正转
+  212   1        {
+  213   2          speed2 = 2*ctimer_count_read(CTIM3_P04)* -1;
+  214   2        }
+  215   1        else        //输出低电平，反转
+  216   1        {
+  217   2          speed2 = 2*ctimer_count_read(CTIM3_P04) ;
+  218   2        }
+  219   1        ctimer_count_clean(CTIM3_P04);//清除积累
+  220   1        Current_speed=(speed1+speed2)/2;
+  221   1        Current_speed=Current_speed*20.4/(2355.2*0.02);//速度=脉冲数*周长/2368*周期;
+  222   1        
+  223   1          //电机PI控制
+  224   1        error=(int)(speed-Current_speed);
+  225   1        duty=duty+(error-error_pre)*Motor_P+error*Motor_I;
+  226   1        error_pre=error;
+  227   1          
+  228   1        if(duty<0)
+  229   1        {    
+  230   2          duty=-duty;
+  231   2          fan_zhuan_flag=1;
+  232   2        }
+  233   1        else
+  234   1        {
+  235   2          fan_zhuan_flag=0;
+  236   2        }
+  237   1        if(duty>=duty_x) duty=duty_x;
+  238   1          
+  239   1        if(My_Direction_NowError>12)
+  240   1        {  
+  241   2      //    speed=80;
+  242   2          
+  243   2          pwm_duty(PWMA_CH1P_P60, duty*0.7);     // 左轮负
+  244   2          Mot_A=0;
+  245   2          pwm_duty(PWMA_CH3P_P64, duty*1.1);      // 右轮负
+  246   2          Mot_B=0;
+  247   2          
+  248   2        }
+  249   1        if(My_Direction_NowError<-12)
+  250   1        {
+  251   2      //    speed=80;
+  252   2          pwm_duty(PWMA_CH1P_P60, duty*1.1);  //左轮正
+  253   2          Mot_A=0;
+  254   2          pwm_duty(PWMA_CH3P_P64, duty*0.7);   //右轮正
+  255   2          Mot_B=0;
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 5   
+
+  256   2          
+  257   2        }
+  258   1        else
+  259   1        {    
+  260   2          speed=200;
+  261   2         if(fan_zhuan_flag==0)
+  262   2         {
+  263   3          pwm_duty(PWMA_CH1P_P60, duty);  //左轮正
+  264   3          Mot_A=0;
+  265   3          
+  266   3          pwm_duty(PWMA_CH3P_P64, duty);   //右轮正
+  267   3          Mot_B=0;
+  268   3         }
+  269   2         else
+  270   2         {
+  271   3          pwm_duty(PWMA_CH1P_P60, duty);     // 左轮负
+  272   3          Mot_A=0;
+  273   3          
+  274   3          pwm_duty(PWMA_CH4P_P66, duty);   //右轮正
+  275   3          Mot_B=0;
+  276   3         }
+  277   2        }
+  278   1      }
+  279          
+  280          void  Direction_Out()
+  281          {
+  282   1         
+  283   1      //   My_Direction_addError=My_Direction_addError+Price_PWM;
+  284   1        
+  285   1         My_Direction_SumError=My_Direction_KP*My_Direction_NowError+ My_Direction_KD*(My_Direction_NowError-My
+             -_Direction_lastError);
+  286   1         My_Direction_lastError=My_Direction_NowError;
+  287   1         
+  288   1        
+  289   1         My_Direction_Pre1_Error[3]= My_Direction_Pre1_Error[2];
+  290   1         My_Direction_Pre1_Error[2]= My_Direction_Pre1_Error[1];
+  291   1         My_Direction_Pre1_Error[1]= My_Direction_Pre1_Error[0];
+  292   1         My_Direction_Pre1_Error[0]= My_Direction_SumError;
+  293   1         My_Direction_Direct_Parameter=My_Direction_Pre1_Error[0]*0.8+My_Direction_Pre1_Error[1]*0.1+My_Directio
+             -n_Pre1_Error[2]*0.06+My_Direction_Pre1_Error[3]*0.04 ;
+  294   1         
+  295   1         Price_PWM=(int16)(My_Direction_Direct_Parameter);
+  296   1      
+  297   1         steering=(910-Price_PWM);
+  298   1          
+  299   1        if(steering<=810)
+  300   1        {
+  301   2          steering=810;
+  302   2        }
+  303   1        if(steering>=1010)
+  304   1        {
+  305   2          steering=1010;
+  306   2        }
+  307   1         pwm_duty(PWMB_CH1_P74, steering);
+  308   1      }
+  309          
+  310          void Lcd_show_message()
+  311          {
+  312   1        lcd_showstr(0,0,"L:");
+  313   1        lcd_showuint16(15,0,L);
+  314   1        
+  315   1        lcd_showstr(0,1,"M:");
+  316   1        lcd_showuint16(15,1,M);
+  317   1        
+  318   1        lcd_showstr(0,2,"R:");
+  319   1        lcd_showuint16(15,2,R);
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 6   
+
+  320   1        
+  321   1        lcd_showstr(0,3,"K:");
+  322   1        lcd_showuint16(15,3,K);
+  323   1        
+  324   1        lcd_showstr(0,4,"J:");
+  325   1        lcd_showuint16(15,4,J);
+  326   1      //  oled_printf_float(15,4,My_Direction_KP,2,3);
+  327   1        
+  328   1        lcd_showstr(0,5,"T:");
+  329   1        lcd_showuint16(15,5,timer_4S);
+  330   1        
+  331   1        lcd_showstr(0,6,"L:");
+  332   1        lcd_showint16(15,6,sc_flag_l);
+  333   1        
+  334   1        lcd_showstr(0,7,"Y:");
+  335   1        lcd_showuint16(15,7,hd_flag_yu1);
+  336   1        
+  337   1        lcd_showstr(0,8,"G:");
+  338   1        lcd_showint16(15,8,hd_flag_go);
+  339   1        
+  340   1      //  lcd_showstr(60,1,"LH:");
+  341   1      //  lcd_showint16(80,1,L_huandao_i);
+  342   1      //  lcd_showstr(60,2,"SA:");
+  343   1      //  lcd_showint16(80,2,sancha_flge);
+  344   1      //  lcd_showstr(60,3,"XF:");
+  345   1      //  lcd_showint16(80,3,xunhuan_flag);
+  346   1      }
+  347          
+  348          void main()
+  349          {
+  350   1        DisableGlobalIRQ();   
+  351   1        delay_init();
+  352   1        
+  353   1          //sys_clk:30000000, 27000000. 24000000, 22118400, 20000000, 18432000, 12000000, 11059200, 6000000, 55
+             -29600
+  354   1        sys_clk = 30000000;     
+  355   1          
+  356   1        board_init();     
+  357   1        
+  358   1        
+  359   1        lcd_init(); 
+  360   1        ctimer_count_init(CTIM0_P34);  //初始化2个编码器
+  361   1        ctimer_count_init(CTIM3_P04);  //初始化2个编码器
+  362   1        adc_init(ADC_P00,ADC_SYSclk_DIV_2);
+  363   1        adc_init(ADC_P01,ADC_SYSclk_DIV_2);
+  364   1        adc_init(ADC_P05,ADC_SYSclk_DIV_2);
+  365   1        adc_init(ADC_P06,ADC_SYSclk_DIV_2);
+  366   1        
+  367   1        
+  368   1        adc_init(ADC_P10,ADC_SYSclk_DIV_2);
+  369   1        adc_init(ADC_P11,ADC_SYSclk_DIV_2);
+  370   1        adc_init(ADC_P13,ADC_SYSclk_DIV_2);
+  371   1        adc_init(ADC_P14,ADC_SYSclk_DIV_2);
+  372   1        
+  373   1        pwm_init(PWMA_CH1P_P60, 10000, 0); 
+  374   1        pwm_init(PWMA_CH3P_P64, 10000, 0); 
+  375   1      
+  376   1        pwm_init(PWMB_CH1_P74, 100, 910); 
+  377   1        gpio_mode(P4_3,GPIO);
+  378   1        gpio_mode(P7_7,GPO_PP); 
+  379   1        gpio_mode(P7_0,GPIO);
+  380   1        gpio_mode(P7_1,GPIO);
+  381   1        gpio_mode(P7_2,GPIO);
+  382   1        gpio_mode(P7_3,GPIO);
+  383   1        gpio_mode(P6_5,GPO_PP);
+  384   1        gpio_mode(P6_2,GPO_PP);
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 7   
+
+  385   1        gpio_mode(P2_6,GPIO);
+  386   1        BEEP=0;
+  387   1        pwm_duty(PWMA_CH1P_P60, 1800);
+  388   1        pwm_duty(PWMA_CH3P_P64, 1800);
+  389   1        Mot_A=0;
+  390   1        Mot_B=0;
+  391   1        pwm_duty(PWMB_CH1_P74, 910);
+  392   1        delay_ms(255);
+  393   1        delay_ms(155);
+  394   1         // delay_ms(255);
+  395   1        pwm_duty(PWMB_CH1_P74, 810);
+  396   1        delay_ms(255);
+  397   1        delay_ms(255);
+  398   1      //  delay_ms(255);
+  399   1      //  delay_ms(255);
+  400   1        pit_timer_ms(TIM_4,1);
+  401   1      //  pit_timer_ms(TIM_2,100);
+  402   1        EnableGlobalIRQ();    
+  403   1      
+  404   1        
+  405   1        
+  406   1        while(1)
+  407   1        {
+  408   2          Lcd_show_message();
+  409   2          BEEP=0;
+  410   2        
+  411   2          
+  412   2          //使用此方法优点在于，不需要使用while(1) 等待，避免处理器资源浪费
+  413   2          //保存按键状态
+  414   2      //    if(KEY1_PIN==0)
+  415   2      //    {
+  416   2      //      delay_ms(50);
+  417   2      //      if(KEY1_PIN==0)
+  418   2      //      {
+  419   2      //        My_Direction_KD=My_Direction_KD+0.1;
+  420   2      //      }
+  421   2      //    }
+  422   2      //    if(KEY2_PIN==0)
+  423   2      //    {
+  424   2      //      delay_ms(50);
+  425   2      //      if(KEY2_PIN==0)
+  426   2      //      {
+  427   2      //        My_Direction_KD=My_Direction_KD-0.1;
+  428   2      //      }
+  429   2      //    }
+  430   2      //    if(KEY3_PIN==0)
+  431   2      //    {
+  432   2      //      delay_ms(50);
+  433   2      //      if(KEY3_PIN==0)
+  434   2      //      {
+  435   2      //        My_Direction_KP=My_Direction_KP+0.1;
+  436   2      //      }
+  437   2      //    }
+  438   2      //    if(KEY4_PIN==0)
+  439   2      //    {
+  440   2      //      delay_ms(50);
+  441   2      //      if(KEY4_PIN==0)
+  442   2      //      {
+  443   2      //        My_Direction_KP=My_Direction_KP-0.1;
+  444   2      //      }
+  445   2      //    }
+  446   2        }
+  447   1      }
+  448          //void TM2_Isr() interrupt 12
+  449          //{
+  450          //  TIM2_CLEAR_FLAG;  //清除中断标志
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 8   
+
+  451          //  timer_2++;
+  452          //  if(timer_2==3500)
+  453          //  {
+  454          //    speed=300;
+  455          //    //timer_2=0;
+  456          //    BEEP=1;
+  457          //  }
+  458          //  if(timer_2==5500)
+  459          //  {
+  460          //    speed=200;
+  461          //  }
+  462          //  if(timer_2==8000)
+  463          //  {
+  464          //    speed=0;
+  465          //    
+  466          //  }
+  467          //}
+  468          void TM4_Isr() interrupt 20
+  469          {
+  470   1        
+  471   1        TIM4_CLEAR_FLAG; 
+  472   1        R=adc_once(ADC_P14, ADC_10BIT);
+  473   1        L=adc_once(ADC_P06, ADC_10BIT);
+  474   1        M=adc_once(ADC_P00, ADC_10BIT);
+  475   1        K=adc_once(ADC_P05, ADC_10BIT);
+  476   1        J=adc_once(ADC_P13, ADC_10BIT);
+  477   1      //  R1=adc_once(ADC_P06, ADC_10BIT);
+  478   1      
+  479   1        My_Direction_NowError=50*(R-L)/(L+M+R);
+  480   1        if(R>L)
+  481   1        {
+  482   2          if(My_Direction_NowError<0)
+  483   2          {
+  484   3            My_Direction_NowError=-My_Direction_NowError;
+  485   3          }
+  486   2        }
+  487   1        if(R<L)
+  488   1        {
+  489   2          if(My_Direction_NowError>0)
+  490   2          {
+  491   3            My_Direction_NowError=-My_Direction_NowError;
+  492   3          }
+  493   2        }
+  494   1        
+  495   1      /***************元素处理***************/
+  496   1      /*环岛*/
+  497   1        if((L>hd_L_min_y)&&(L<hd_L_max_y)&&(R>hd_R_min_y)&&(R<hd_R_max_y)&&(M>hd_M_min_y)&&(M<hd_M_max_y)&&(K>hd
+             -_K_min_y)&&(K<hd_K_max_y)&&(J>hd_J_min_y)&&(J<hd_J_max_y)&&(hd_flag_yu1==0))
+  498   1        {
+  499   2          if(hd_flag_y_cy==0)
+  500   2          {
+  501   3            hd_L_max_y=L+80;
+  502   3            hd_L_min_y=L-80;
+  503   3            hd_M_max_y=M+80;
+  504   3            hd_M_min_y=M-80;
+  505   3            hd_R_max_y=R+80;
+  506   3            hd_R_min_y=R-80;
+  507   3            hd_K_max_y=K+100;
+  508   3            hd_K_min_y=K-100; 
+  509   3            hd_J_max_y=J+100;
+  510   3            hd_J_min_y=J-100;
+  511   3            hd_flag_y_cy=1;
+  512   3          }
+  513   2          hd_flag_yu1=1;
+  514   2          speed=200;
+  515   2          duty_x=2100;
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 9   
+
+  516   2          DJ_output();
+  517   2          
+  518   2        }
+  519   1        //進左環島
+  520   1        if((L>hd_L_min)&&(L<hd_L_max)&&(M>hd_M_min)&&(M<hd_M_max)&&(R>hd_R_min)&&(R<hd_R_max)&&(K>hd_K_min)&&(K<
+             -hd_K_max)&&(J>hd_J_min)&&(J<hd_J_max)&&(hd_flag_yu1==1))
+  521   1        {
+  522   2          speed=200;
+  523   2          duty_x=2100;
+  524   2          DJ_output();
+  525   2          
+  526   2          if(hd_flag_cy==0)
+  527   2          {
+  528   3            speed=200;
+  529   3            duty_x=2000;
+  530   3            DJ_output();
+  531   3            hd_L_max=L+80;
+  532   3            hd_L_min=L-80;
+  533   3            hd_M_max=M+80;
+  534   3            hd_M_min=M-80;
+  535   3            hd_R_max=R+80;
+  536   3            hd_R_min=R-80;
+  537   3            hd_K_max=K+100;
+  538   3            hd_K_min=K-100; 
+  539   3            hd_J_max=J+100;
+  540   3            hd_J_min=J-100;
+  541   3            hd_flag_cy=1;
+  542   3          }
+  543   2      
+  544   2          hd_flag_go=1;
+  545   2          hd_flag_a=1;
+  546   2          speed=200;
+  547   2          duty_x=1800;
+  548   2          DJ_output();
+  549   2          pwm_duty(PWMB_CH1_P74, 980);
+  550   2          delay_ms(230);
+  551   2          timer_4huan1=1;
+  552   2          hd_flag_go=0;
+  553   2          hd_flag_yu1=0;
+  554   2          sc_flag_yu=1;
+  555   2              
+  556   2      //    speed=200;
+  557   2      //    duty_x=2100;
+  558   2        }
+  559   1      
+  560   1        /*三岔*/
+  561   1        //進右三岔
+  562   1        if((L>sc_y_L_min)&&(L<sc_y_L_max)&&(M>sc_y_M_min)&&(M<sc_y_M_max)&&(R>sc_y_R_min)&&(R<sc_y_R_max)&&(K<sc
+             -_y_K_max)&&(K>sc_y_K_min)&&(J<sc_y_J_max)&&(J>sc_y_J_min)&&(sc_flag_yu==1)&&(sc_flag_l==1))
+  563   1        {
+  564   2          timer_4huan1=0;
+  565   2          timer_4huan2=0;
+  566   2          hd_flag_b=0;
+  567   2          hd_flag_a=0;
+  568   2      //    sc_flag_yu=1;
+  569   2      //    //speed=200;
+  570   2      //    BEEP=1;
+  571   2          sc_flag_l=0;
+  572   2          sc_flag_r=1;
+  573   2          timer_4S=1;
+  574   2      //    BEEP=1;
+  575   2          speed=200;
+  576   2          duty_x=1400;
+  577   2          pwm_duty(PWMB_CH1_P74, 1020);
+  578   2          DJ_output();
+  579   2          delay_ms(230);
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 10  
+
+  580   2          sc_flag_yu=0;
+  581   2          go_in=1;
+  582   2          speed=300;
+  583   2          duty_x=2700;
+  584   2          DJ_output();
+  585   2      //    BEEP=0;
+  586   2        }
+  587   1        //進左三岔
+  588   1        if((L>sc_y_L_min)&&(L<sc_y_L_max)&&(M>sc_y_M_min)&&(M<sc_y_M_max)&&(R>sc_y_R_min)&&(R<sc_y_R_max)&&(K<sc
+             -_y_K_max)&&(K>sc_y_K_min)&&(J<sc_y_J_max)&&(J>sc_y_J_min)&&(sc_flag_yu==1)&&(sc_flag_l==0))
+  589   1        {
+  590   2          timer_4huan1=0;
+  591   2          timer_4huan2=0;
+  592   2          hd_flag_b=0;
+  593   2          hd_flag_a=0;
+  594   2          sc_flag_r=0;
+  595   2          sc_flag_l=1;
+  596   2          speed=200;
+  597   2          duty_x=1500;
+  598   2          DJ_output();
+  599   2          pwm_duty(PWMB_CH1_P74, 810);
+  600   2          delay_ms(200);
+  601   2          sc_flag_yu=0;
+  602   2          speed=400;
+  603   2          duty_x=2700;
+  604   2        }
+  605   1        if(go_in==1&&((Hall==0)||(Hall1==0)))
+  606   1        {
+  607   2        
+  608   2          pwm_duty(PWMB_CH1_P74, 900);
+  609   2      //    Mot_A=0;
+  610   2      //    Mot_B=0;
+  611   2          pwm_duty(PWMA_CH1P_P60, 0);  //左轮正
+  612   2          pwm_duty(PWMA_CH3P_P64, 0);   //右轮正
+  613   2          
+  614   2          delay_ms(255);
+  615   2          delay_ms(255);
+  616   2          delay_ms(255);
+  617   2          Mot_A=1;
+  618   2          Mot_B=1;
+  619   2          pwm_duty(PWMB_CH1_P74, 800);
+  620   2          pwm_duty(PWMA_CH1P_P60, 1800);  //左轮正
+  621   2          pwm_duty(PWMA_CH3P_P64, 1800);   //右轮正
+  622   2          delay_ms(255);
+  623   2          delay_ms(255);
+  624   2          delay_ms(255);
+  625   2          delay_ms(255);
+  626   2          delay_ms(255);
+  627   2          delay_ms(255);
+  628   2          pwm_duty(PWMB_CH1_P74, 910);
+  629   2          pwm_duty(PWMA_CH1P_P60, 1600);  //左轮正
+  630   2          pwm_duty(PWMA_CH3P_P64, 1600);   //右轮正
+  631   2          
+  632   2          delay_ms(200);
+  633   2          delay_ms(200);
+  634   2          pwm_duty(PWMA_CH1P_P60, 0);  //左轮正
+  635   2          pwm_duty(PWMA_CH3P_P64, 0);   //右轮正
+  636   2          DisableGlobalIRQ(); 
+  637   2          ting_flag=1;
+  638   2      
+  639   2        }
+  640   1         
+  641   1        if(timer_4S==1)
+  642   1        {
+  643   2          timer_4A++;
+  644   2        }
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 11  
+
+  645   1        if(timer_4A==1500)
+  646   1        {
+  647   2          speed=200;
+  648   2          duty_x=2000;
+  649   2        }
+  650   1        
+  651   1        if(timer_4huan1==1)
+  652   1        {
+  653   2          timer_4huan2++;
+  654   2        }
+  655   1        if(timer_4huan2==800)
+  656   1        {
+  657   2          speed=400;
+  658   2          duty_x=2500;
+  659   2        }
+  660   1        
+  661   1      //  if((L>sc_L_min)&&(L<sc_L_max)&&(M>sc_M_min)&&(M<sc_M_max)&&(R>sc_R_min)&&(R<sc_R_max)&&(K<sc_K_max)&&(
+             -K>sc_K_min)&&(sc_flag_yu==1)&&(sc_flag_l==1))
+  662   1      //  {
+  663   1      //    sc_flag_l=0;
+  664   1      //    sc_flag_r=1;
+  665   1      
+  666   1      //    BEEP=1;
+  667   1      //    pwm_duty(PWMB_CH1_P74, 1000);
+  668   1      //    DJ_output();
+  669   1      //    delay_ms(250);
+  670   1      //    delay_ms(50);
+  671   1      //    sc_flag_yu=0;
+  672   1      //  }
+  673   1      //  //||((L>sc_L_min_r)&&(L<sc_L_max_r)&&(M>sc_M_min_r)&&(M<sc_M_max_r)&&(R>sc_R_min_r)&&(R<sc_R_max_r)&&(
+             -K<sc_K_max_r)&&(K>sc_K_min_r))
+  674   1      //  if((L>sc_L_min)&&(L<sc_L_max)&&(M>sc_M_min)&&(M<sc_M_max)&&(R>sc_R_min)&&(R<sc_R_max)&&(K<sc_K_max)&&(
+             -K>sc_K_min)&&(sc_flag_yu==1)&&(sc_flag_l==0))
+  675   1      //  {
+  676   1      //    sc_flag_r=0;
+  677   1      //    sc_flag_l=1;
+  678   1      //    pwm_duty(PWMB_CH1_P74, 810);
+  679   1      //    DJ_output();
+  680   1      //    BEEP=1;
+  681   1      //    delay_ms(250);
+  682   1      //    delay_ms(50);
+  683   1      //    sc_flag_yu=0;
+  684   1      //  }
+  685   1      //    if(R<=20&&L<=20&&M<=20&&K<=20&&J<=20)
+  686   1      //    {
+  687   1      //        delay_ms(255);
+  688   1      //      if(R<=20&&L<=20&&M<=20&&K<=20&&J<=20)
+  689   1      //      {
+  690   1      //        pwm_duty(PWMA_CH1P_P60, 0);  //左轮正
+  691   1      //        pwm_duty(PWMA_CH3P_P64, 0);   //右轮正
+  692   1      //        DisableGlobalIRQ();
+  693   1      //      }
+  694   1      //    }
+  695   1      /******************************/
+  696   1        Direction_Out();
+  697   1        if(ting_flag==0)
+  698   1        {
+  699   2          DJ_output();
+  700   2        }
+  701   1        
+  702   1      }
+  703          
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =      3109     ------
+C251 COMPILER V5.60.0,  main                                                               12/06/24  22:51:46  PAGE 12  
+
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =       259     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =       603     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
