@@ -1,0 +1,288 @@
+C251 COMPILER V5.60.0,  zf_tim                                                             14/06/24  16:35:48  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE zf_tim
+OBJECT MODULE PLACED IN .\Out_File\zf_tim.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\..\Libraries\seekfree_libraries\zf_tim.c XSMALL INTR2 WARNINGLEVEL(
+                    -0) BROWSE INCDIR(..\..\Libraries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\COD
+                    -E;..\USER\inc;..\USER\src) DEBUG PRINT(.\Out_File\zf_tim.lst) TABS(2) OBJECT(.\Out_File\zf_tim.obj) 
+
+stmt  level    source
+
+    1          /********************************************************************************************************
+             -*************
+    2           * COPYRIGHT NOTICE
+    3           * Copyright (c) 2020,逐飞科技
+    4           * All rights reserved.
+    5           * 技术讨论QQ群：一群：179029047(已满)  二群：244861897(已满)  三群：824575535
+    6           *
+    7           * 以下所有内容版权均属逐飞科技所有，未经允许不得用于商业用途，
+    8           * 欢迎各位使用并传播本程序，修改内容时必须保留逐飞科技的版权声明。
+    9           *
+   10           * @file          ctime
+   11           * @company       成都逐飞科技有限公司
+   12           * @author        逐飞科技(QQ790875685)
+   13           * @version       查看doc内version文件 版本说明
+   14           * @Software    MDK FOR C251 V5.60
+   15           * @Target core   STC16F40K128
+   16           * @Taobao      https://seekfree.taobao.com/
+   17           * @date          2020-4-14
+   18           ********************************************************************************************************
+             -************/
+   19          
+   20          #include "zf_tim.h"
+   21          #include "board.h"
+   22          
+   23          //-------------------------------------------------------------------------------------------------------
+             -------------
+   24          //  @brief      定时器初始化作为外部计数
+   25          //  @param      tim_n           选择模块
+   26          //  @return     void
+   27          //  @since      v1.0
+   28          //  Sample usage:               ctimer_count_init(CTIM0_P34);   //初始化定时器0，外部输入为P3.
+             -4引脚
+   29          //  @note                       串口1使用定时器1作为波特率发生器，
+   30          //                串口2使用定时器2作为波特率发生器，
+   31          //                串口3使用定时器3作为波特率发生器，
+   32          //                串口4使用定时器4作为波特率发生器，
+   33          //                              STC16F仅有定时器0-定时器4，这5个定时器。
+   34          //                编码器采集数据也需要定时器作为外部计数。
+   35          //-------------------------------------------------------------------------------------------------------
+             -------------
+   36          void ctimer_count_init(CTIMN_enum tim_n)
+   37          {
+   38   1      
+   39   1        switch (tim_n)
+   40   1        {
+   41   2        case CTIM0_P34:
+   42   2        {
+   43   3          TL0 = 0;
+   44   3          TH0 = 0;
+   45   3          TMOD |= 0x04; //外部计数模式
+   46   3          TR0 = 1;    //启动定时器
+   47   3          break;
+   48   3        }
+   49   2      
+   50   2        case CTIM1_P35:
+   51   2        {
+   52   3          TL1 = 0x00;
+C251 COMPILER V5.60.0,  zf_tim                                                             14/06/24  16:35:48  PAGE 2   
+
+   53   3          TH1 = 0x00;
+   54   3          TMOD |= 0x40; // 外部计数模式
+   55   3          TR1 = 1;    // 启动定时器
+   56   3          break;
+   57   3        }
+   58   2      
+   59   2        case CTIM2_P12:
+   60   2        {
+   61   3          T2L = 0x00;
+   62   3          T2H = 0x00;
+   63   3          AUXR |= 0x18; // 设置外部计数模式并启动定时器
+   64   3          break;
+   65   3        }
+   66   2      
+   67   2        case CTIM3_P04:
+   68   2        {
+   69   3          T3L = 0;
+   70   3          T3H = 0;
+   71   3          T4T3M |= 0x0c; // 设置外部计数模式并启动定时器
+   72   3          break;
+   73   3        }
+   74   2      
+   75   2        case CTIM4_P06:
+   76   2        {
+   77   3          T4L = 0;
+   78   3          T4H = 0;
+   79   3          T4T3M |= 0xc0; // 设置外部计数模式并启动定时器
+   80   3          break;
+   81   3        }
+   82   2        }
+   83   1      }
+   84          
+   85          //-------------------------------------------------------------------------------------------------------
+             -------------
+   86          //  @brief      获取计数数值
+   87          //  @param      countch     计数通道号及引脚
+   88          //  @return     uint32      返回计数值
+   89          //  Sample usage:           num = ctimer_count_read(CTIM0_P34);
+   90          //-------------------------------------------------------------------------------------------------------
+             -------------
+   91          uint16 ctimer_count_read(CTIMN_enum tim_n)
+   92          {
+   93   1        uint16 dat = 0;
+   94   1      
+   95   1        switch (tim_n)
+   96   1        {
+   97   2        case CTIM0_P34:
+   98   2        {
+   99   3          dat = (uint16)TH0 << 8;
+  100   3          dat = ((uint8)TL0) | dat;
+  101   3          break;
+  102   3        }
+  103   2        case CTIM1_P35:
+  104   2        {
+  105   3          dat = (uint16)TH1 << 8;
+  106   3          dat = ((uint8)TL1) | dat;
+  107   3          break;
+  108   3        }
+  109   2        case CTIM2_P12:
+  110   2        {
+  111   3          dat = (uint16)T2H << 8;
+  112   3          dat = ((uint8)T2L) | dat;
+  113   3          break;
+  114   3        }
+  115   2        case CTIM3_P04:
+  116   2        {
+C251 COMPILER V5.60.0,  zf_tim                                                             14/06/24  16:35:48  PAGE 3   
+
+  117   3          dat = (uint16)T3H << 8;
+  118   3          dat = ((uint8)T3L) | dat;
+  119   3          break;
+  120   3        }
+  121   2        case CTIM4_P06:
+  122   2        {
+  123   3          dat = (uint16)T4H << 8;
+  124   3          dat = ((uint8)T4L) | dat;
+  125   3          break;
+  126   3        }
+  127   2        }
+  128   1        return dat;
+  129   1      }
+  130          
+  131          //-------------------------------------------------------------------------------------------------------
+             -------------
+  132          //  @brief      清除计数数值
+  133          //  @param      countch     计数通道号及引脚
+  134          //  @return     void
+  135          //  Sample usage:           ctimer_count_clean(CTIM0_P34);
+  136          //-------------------------------------------------------------------------------------------------------
+             -------------
+  137          void ctimer_count_clean(CTIMN_enum tim_n)
+  138          {
+  139   1        switch (tim_n)
+  140   1        {
+  141   2        case CTIM0_P34:
+  142   2        {
+  143   3          TR0 = 0;
+  144   3          TH0 = 0;
+  145   3          TL0 = 0;
+  146   3          TR0 = 1;
+  147   3          break;
+  148   3        }
+  149   2        case CTIM1_P35:
+  150   2        {
+  151   3          TR1 = 0;
+  152   3          TH1 = 0;
+  153   3          TL1 = 0;
+  154   3          TR1 = 1;
+  155   3          break;
+  156   3        }
+  157   2        case CTIM2_P12:
+  158   2        {
+  159   3          AUXR &= ~(1 << 4);
+  160   3          T2H = 0;
+  161   3          T2L = 0;
+  162   3          AUXR |= 1 << 4;
+  163   3          break;
+  164   3        }
+  165   2        case CTIM3_P04:
+  166   2        {
+  167   3          T4T3M &= ~(1 << 3);
+  168   3          T3H = 0;
+  169   3          T3L = 0;
+  170   3          T4T3M |= (1 << 3);
+  171   3          break;
+  172   3        }
+  173   2        case CTIM4_P06:
+  174   2        {
+  175   3          T4T3M &= ~(1 << 7);
+  176   3          T4H = 0;
+  177   3          T4L = 0;
+  178   3          T4T3M |= (1 << 7);
+  179   3          break;
+  180   3        }
+C251 COMPILER V5.60.0,  zf_tim                                                             14/06/24  16:35:48  PAGE 4   
+
+  181   2        }
+  182   1      }
+  183          
+  184          //-------------------------------------------------------------------------------------------------------
+             -------------
+  185          //  @brief      定时器周期中断
+  186          //  @param      tim_n      定时器通道号
+  187          //  @param      time_ms    时间(ms)
+  188          //  @return     void
+  189          //  Sample usage:          pit_timer_ms(TIM_0, 10)
+  190          //               使用定时器0做周期中断，时间10ms一次。
+  191          //-------------------------------------------------------------------------------------------------------
+             -------------
+  192          void pit_timer_ms(TIMN_enum tim_n, uint16 time_ms)
+  193          {
+  194   1        uint16 temp;
+  195   1        temp = (uint16)65536 - (uint16)(sys_clk / (12 * (1000 / time_ms)));
+  196   1      
+  197   1        if (TIM_0 == tim_n)
+  198   1        {
+  199   2          TMOD |= 0x00; // 模式 0
+  200   2          TL0 = temp;
+  201   2          TH0 = temp >> 8;
+  202   2          TR0 = 1; // 启动定时器
+  203   2          ET0 = 1; // 使能定时器中断
+  204   2        }
+  205   1        else if (TIM_1 == tim_n)
+  206   1        {
+  207   2          TMOD |= 0x00; // 模式 0
+  208   2          TL1 = temp;
+  209   2          TH1 = temp >> 8;
+  210   2          TR1 = 1; // 启动定时器
+  211   2          ET1 = 1; // 使能定时器中断
+  212   2        }
+  213   1        else if (TIM_2 == tim_n)
+  214   1        {
+  215   2          T2L = temp;
+  216   2          T2H = temp >> 8;
+  217   2          AUXR |= 0x10; // 启动定时器
+  218   2          IE2 |= 0x04;  // 使能定时器中断
+  219   2        }
+  220   1        else if (TIM_3 == tim_n)
+  221   1        {
+  222   2          T3L = temp;
+  223   2          T3H = temp >> 8;
+  224   2          T4T3M |= 0x08; // 启动定时器
+  225   2          IE2 |= 0x20;   // 使能定时器中断
+  226   2        }
+  227   1        else if (TIM_4 == tim_n)
+  228   1        {
+  229   2          T4L = temp;
+  230   2          T4H = temp >> 8;
+  231   2          T4T3M |= 0x80; // 启动定时器
+  232   2          IE2 |= 0x40;   // 使能定时器中断
+  233   2        }
+  234   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       380     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+C251 COMPILER V5.60.0,  zf_tim                                                             14/06/24  16:35:48  PAGE 5   
+
+  edata size           =    ------     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

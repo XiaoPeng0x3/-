@@ -1,0 +1,384 @@
+C251 COMPILER V5.60.0,  SEEKFREE_ICM20602                                                  14/06/24  16:35:48  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE SEEKFREE_ICM20602
+OBJECT MODULE PLACED IN .\Out_File\SEEKFREE_ICM20602.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\..\Libraries\seekfree_peripheral\SEEKFREE_ICM20602.c XSMALL INTR2 W
+                    -ARNINGLEVEL(0) BROWSE INCDIR(..\..\Libraries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_perip
+                    -heral;..\CODE;..\USER\inc;..\USER\src) DEBUG PRINT(.\Out_File\SEEKFREE_ICM20602.lst) TABS(2) OBJECT(.\Out_File\SEEKFREE_
+                    -ICM20602.obj) 
+
+stmt  level    source
+
+    1          /********************************************************************************************************
+             -*************
+    2           * COPYRIGHT NOTICE
+    3           * Copyright (c) 2018,逐飞科技
+    4           * All rights reserved.
+    5           * 技术讨论QQ群：一群：179029047(已满)  二群：244861897
+    6           *
+    7           * 以下所有内容版权均属逐飞科技所有，未经允许不得用于商业用途，
+    8           * 欢迎各位使用并传播本程序，修改内容时必须保留逐飞科技的版权声明。
+    9           *
+   10           * @file          ICM20602
+   11           * @company       成都逐飞科技有限公司
+   12           * @author        逐飞科技(QQ3184284598)
+   13           * @version       查看doc内version文件 版本说明
+   14           * @Software    MDK FOR C251 V5.60
+   15           * @Taobao      https://seekfree.taobao.com/
+   16           * @date          2019-04-30
+   17           * @note
+   18                              接线定义：
+   19                              ------------------------------------
+   20          
+   21                              ------------------------------------
+   22           ********************************************************************************************************
+             -************/
+   23          
+   24          #include "SEEKFREE_ICM20602.h"
+   25          #include "SEEKFREE_IIC.h"
+   26          #include "zf_delay.h"
+   27          #include "zf_spi.h"
+   28          
+   29          int16 icm_gyro_x, icm_gyro_y, icm_gyro_z;
+   30          int16 icm_acc_x, icm_acc_y, icm_acc_z;
+   31          
+   32          //-------------------------------------------------------------------------------------------------------
+             -------------
+   33          //  以下函数是使用软件IIC通信，相比较硬件IIC，软件IIC引脚更加灵活，可以使�
+             -�任意普通IO
+   34          //-------------------------------------------------------------------------------------------------------
+             -------------
+   35          //-------------------------------------------------------------------------------------------------------
+             -------------
+   36          //  @brief      ICM20602自检函数
+   37          //  @param      NULL
+   38          //  @return     void
+   39          //  @since      v1.0
+   40          //  Sample usage:       调用该函数前，请先调用模拟IIC的初始化
+   41          //-------------------------------------------------------------------------------------------------------
+             -------------
+   42          void icm20602_self1_check(void)
+   43          {
+   44   1          uint8 dat;
+   45   1          dat = simiic_read_reg(ICM20602_DEV_ADDR, ICM20602_WHO_AM_I, SIMIIC);
+   46   1          while (0x12 != dat) //读取ICM20602 ID
+   47   1          {
+   48   2              dat = simiic_read_reg(ICM20602_DEV_ADDR, ICM20602_WHO_AM_I, SIMIIC);
+   49   2              delay_ms(10);
+C251 COMPILER V5.60.0,  SEEKFREE_ICM20602                                                  14/06/24  16:35:48  PAGE 2   
+
+   50   2              //卡在这里原因有以下几点
+   51   2              // 1 ICM20602坏了，如果是新的这样的概率极低
+   52   2              // 2 接线错误或者没有接好
+   53   2              // 3 可能你需要外接上拉电阻，上拉到3.3V
+   54   2          }
+   55   1      }
+   56          
+   57          //-------------------------------------------------------------------------------------------------------
+             -------------
+   58          //  @brief      软件IIC，初始化ICM20602
+   59          //  @param      NULL
+   60          //  @return     void
+   61          //  @since      v1.0
+   62          //  Sample usage:       调用该函数前，请先调用模拟IIC的初始化
+   63          //-------------------------------------------------------------------------------------------------------
+             -------------
+   64          void icm20602_init_simiic(void)
+   65          {
+   66   1          delay_ms(10); //上电延时
+   67   1      
+   68   1          //检测
+   69   1          icm20602_self1_check();
+   70   1      
+   71   1          //复位
+   72   1          simiic_write_reg(ICM20602_DEV_ADDR, ICM20602_PWR_MGMT_1, 0x80); //复位设备
+   73   1          delay_ms(2);                                                    //延时
+   74   1          while (0x80 & simiic_read_reg(ICM20602_DEV_ADDR, ICM20602_PWR_MGMT_1, SIMIIC))
+   75   1              ; //等待复位完成
+   76   1      
+   77   1          //配置参数
+   78   1          simiic_write_reg(ICM20602_DEV_ADDR, ICM20602_PWR_MGMT_1, 0x01);     //时钟设置
+   79   1          simiic_write_reg(ICM20602_DEV_ADDR, ICM20602_PWR_MGMT_2, 0x00);     //开启陀螺仪和加速度计
+   80   1          simiic_write_reg(ICM20602_DEV_ADDR, ICM20602_CONFIG, 0x01);         // 176HZ 1KHZ
+   81   1          simiic_write_reg(ICM20602_DEV_ADDR, ICM20602_SMPLRT_DIV, 0x07);     //采样速率 SAMPLE_RATE = INTE
+             -RNAL_SAMPLE_RATE / (1 + SMPLRT_DIV)
+   82   1          simiic_write_reg(ICM20602_DEV_ADDR, ICM20602_GYRO_CONFIG, 0x18);    //±2000 dps
+   83   1          simiic_write_reg(ICM20602_DEV_ADDR, ICM20602_ACCEL_CONFIG, 0x10);   //±8g
+   84   1          simiic_write_reg(ICM20602_DEV_ADDR, ICM20602_ACCEL_CONFIG_2, 0x03); // Average 4 samples   44.8HZ   /
+             -/0x23 Average 16 samples
+   85   1          // ICM20602_GYRO_CONFIG寄存器
+   86   1          //设置为:0x00 陀螺仪量程为:±250 dps     获取到的陀螺仪数据除以131           可�
+             -��转化为带物理单位的数据， 单位为：°/s
+   87   1          //设置为:0x08 陀螺仪量程为:±500 dps     获取到的陀螺仪数据除以65.5          可�
+             -��转化为带物理单位的数据，单位为：°/s
+   88   1          //设置为:0x10 陀螺仪量程为:±1000dps     获取到的陀螺仪数据除以32.8          可�
+             -��转化为带物理单位的数据，单位为：°/s
+   89   1          //设置为:0x18 陀螺仪量程为:±2000dps     获取到的陀螺仪数据除以16.4          可�
+             -��转化为带物理单位的数据，单位为：°/s
+   90   1      
+   91   1          // ICM20602_ACCEL_CONFIG寄存器
+   92   1          //设置为:0x00 加速度计量程为:±2g          获取到的加速度计数据 除以16384      
+             -可以转化为带物理单位的数据，单位：g(m/s^2)
+   93   1          //设置为:0x08 加速度计量程为:±4g          获取到的加速度计数据 除以8192       
+             -可以转化为带物理单位的数据，单位：g(m/s^2)
+   94   1          //设置为:0x10 加速度计量程为:±8g          获取到的加速度计数据 除以4096       
+             -可以转化为带物理单位的数据，单位：g(m/s^2)
+   95   1          //设置为:0x18 加速度计量程为:±16g         获取到的加速度计数据 除以2048       
+             -可以转化为带物理单位的数据，单位：g(m/s^2)
+   96   1      }
+   97          
+   98          //-------------------------------------------------------------------------------------------------------
+             -------------
+   99          //  @brief      获取ICM20602加速度计数据
+  100          //  @param      NULL
+  101          //  @return     void
+  102          //  @since      v1.0
+C251 COMPILER V5.60.0,  SEEKFREE_ICM20602                                                  14/06/24  16:35:48  PAGE 3   
+
+  103          //  Sample usage:       执行该函数后，直接查看对应的变量即可
+  104          //-------------------------------------------------------------------------------------------------------
+             -------------
+  105          void get_icm20602_accdata_simiic(void)
+  106          {
+  107   1          uint8 dat[6];
+  108   1      
+  109   1          simiic_read_regs(ICM20602_DEV_ADDR, ICM20602_ACCEL_XOUT_H, dat, 6, SIMIIC);
+  110   1          icm_acc_x = (int16)(((uint16)dat[0] << 8 | dat[1]));
+  111   1          icm_acc_y = (int16)(((uint16)dat[2] << 8 | dat[3]));
+  112   1          icm_acc_z = (int16)(((uint16)dat[4] << 8 | dat[5]));
+  113   1      }
+  114          
+  115          //-------------------------------------------------------------------------------------------------------
+             -------------
+  116          //  @brief      获取ICM20602陀螺仪数据
+  117          //  @param      NULL
+  118          //  @return     void
+  119          //  @since      v1.0
+  120          //  Sample usage:       执行该函数后，直接查看对应的变量即可
+  121          //-------------------------------------------------------------------------------------------------------
+             -------------
+  122          void get_icm20602_gyro_simiic(void)
+  123          {
+  124   1          uint8 dat[6];
+  125   1      
+  126   1          simiic_read_regs(ICM20602_DEV_ADDR, ICM20602_GYRO_XOUT_H, dat, 6, SIMIIC);
+  127   1          icm_gyro_x = (int16)(((uint16)dat[0] << 8 | dat[1]));
+  128   1          icm_gyro_y = (int16)(((uint16)dat[2] << 8 | dat[3]));
+  129   1          icm_gyro_z = (int16)(((uint16)dat[4] << 8 | dat[5]));
+  130   1      }
+  131          
+  132          //-------------------------------------------------------------------------------------------------------
+             -------------
+  133          //  以下函数是使用软件SPI通信，相比较硬件SPI，软件SPI引脚更加灵活，可以使�
+             -�任意普通IO
+  134          //-------------------------------------------------------------------------------------------------------
+             -------------
+  135          
+  136          //-------------------------------------------------------------------------------------------------------
+             -------------
+  137          //  @brief      通过SPI写一个byte,同时读取一个byte
+  138          //  @param      byte        发送的数据
+  139          //  @return     uint8       return 返回status状态
+  140          //  @since      v1.0
+  141          //  Sample usage:
+  142          //-------------------------------------------------------------------------------------------------------
+             -------------
+  143          uint8 icm_simspi_wr_byte(uint8 byte)
+  144          {
+  145   1          uint8 i;
+  146   1      
+  147   1          for (i = 0; i < 8; i++)
+  148   1          {
+  149   2              ICM20602_MOSI(byte & 0x80);
+  150   2              byte <<= 1;
+  151   2              ICM20602_SCK(0);
+  152   2      
+  153   2              ICM20602_SCK(1);
+  154   2              byte |= ICM20602_MISO;
+  155   2          }
+  156   1          return (byte);
+  157   1      }
+  158          
+  159          //-------------------------------------------------------------------------------------------------------
+             -------------
+C251 COMPILER V5.60.0,  SEEKFREE_ICM20602                                                  14/06/24  16:35:48  PAGE 4   
+
+  160          //  @brief      将val写入cmd对应的寄存器地址,同时返回status字节
+  161          //  @param      cmd         命令字
+  162          //  @param      val         待写入寄存器的数值
+  163          //  @since      v1.0
+  164          //  Sample usage:
+  165          //-------------------------------------------------------------------------------------------------------
+             -------------
+  166          void icm_simspi_w_reg_byte(uint8 cmd, uint8 val)
+  167          {
+  168   1          ICM20602_CSN(0);
+  169   1          cmd |= ICM20602_SPI_W;
+  170   1          icm_simspi_wr_byte(cmd);
+  171   1          icm_simspi_wr_byte(val);
+  172   1          ICM20602_CSN(1);
+  173   1      }
+  174          
+  175          //-------------------------------------------------------------------------------------------------------
+             -------------
+  176          //  @brief      读取cmd所对应的寄存器地址
+  177          //  @param      cmd         命令字
+  178          //  @param      *val        存储读取的数据地址
+  179          //  @since      v1.0
+  180          //  Sample usage:
+  181          //-------------------------------------------------------------------------------------------------------
+             -------------
+  182          void icm_simspi_r_reg_byte(uint8 cmd, uint8 *val)
+  183          {
+  184   1          ICM20602_CSN(0);
+  185   1          cmd |= ICM20602_SPI_R;
+  186   1          icm_simspi_wr_byte(cmd);
+  187   1          *val = icm_simspi_wr_byte(0);
+  188   1          ICM20602_CSN(1);
+  189   1      }
+  190          
+  191          //-------------------------------------------------------------------------------------------------------
+             -------------
+  192          //  @brief      读取cmd所对应的寄存器地址
+  193          //  @param      cmd         命令字
+  194          //  @param      *val        存储读取的数据地址
+  195          //  @param      num         读取的数量
+  196          //  @since      v1.0
+  197          //  Sample usage:
+  198          //-------------------------------------------------------------------------------------------------------
+             -------------
+  199          void icm_simspi_r_reg_bytes(uint8 cmd, uint8 *val, uint8 num)
+  200          {
+  201   1          uint16 i;
+  202   1          ICM20602_CSN(0);
+  203   1          cmd |= ICM20602_SPI_R;
+  204   1          icm_simspi_wr_byte(cmd);
+  205   1      
+  206   1          for (i = 0; i < num; i++)
+  207   1              val[i] = icm_simspi_wr_byte(0);
+  208   1      
+  209   1          ICM20602_CSN(1);
+  210   1      }
+  211          
+  212          //-------------------------------------------------------------------------------------------------------
+             -------------
+  213          //  @brief      ICM20602自检函数
+  214          //  @param      NULL
+  215          //  @return     void
+  216          //  @since      v1.0
+  217          //  Sample usage:
+  218          //-------------------------------------------------------------------------------------------------------
+             -------------
+C251 COMPILER V5.60.0,  SEEKFREE_ICM20602                                                  14/06/24  16:35:48  PAGE 5   
+
+  219          void icm20602_self4_check(void)
+  220          {
+  221   1          uint8 val;
+  222   1          do
+  223   1          {
+  224   2              icm_simspi_r_reg_byte(ICM20602_WHO_AM_I, &val);
+  225   2      
+  226   2              //卡在这里原因有以下几点
+  227   2              // 1 ICM20602坏了，如果是新的这样的概率极低
+  228   2              // 2 接线错误或者没有接好
+  229   2              // 3 可能你需要外接上拉电阻，上拉到3.3V
+  230   2          } while (0x12 != val);
+  231   1      }
+  232          
+  233          //-------------------------------------------------------------------------------------------------------
+             -------------
+  234          //  @brief      软件SPI，初始化ICM20602
+  235          //  @param      NULL
+  236          //  @return     void
+  237          //  @since      v1.0
+  238          //  Sample usage:
+  239          //-------------------------------------------------------------------------------------------------------
+             -------------
+  240          void icm20602_init_simspi(void)
+  241          {
+  242   1          uint8 val;
+  243   1      
+  244   1          icm20602_self4_check(); //检测
+  245   1      
+  246   1          icm_simspi_w_reg_byte(ICM20602_PWR_MGMT_1, 0x80); //复位设备
+  247   1          delay_ms(2);
+  248   1          do
+  249   1          { //等待复位成功
+  250   2              icm_simspi_r_reg_byte(ICM20602_PWR_MGMT_1, &val);
+  251   2          } while (0x41 != val);
+  252   1      
+  253   1          icm_simspi_w_reg_byte(ICM20602_PWR_MGMT_1, 0x01);     //时钟设置
+  254   1          icm_simspi_w_reg_byte(ICM20602_PWR_MGMT_2, 0x00);     //开启陀螺仪和加速度计
+  255   1          icm_simspi_w_reg_byte(ICM20602_CONFIG, 0x01);         // 176HZ 1KHZ
+  256   1          icm_simspi_w_reg_byte(ICM20602_SMPLRT_DIV, 0x07);     //采样速率 SAMPLE_RATE = INTERNAL_SAMPLE_RA
+             -TE / (1 + SMPLRT_DIV)
+  257   1          icm_simspi_w_reg_byte(ICM20602_GYRO_CONFIG, 0x18);    //±2000 dps
+  258   1          icm_simspi_w_reg_byte(ICM20602_ACCEL_CONFIG, 0x10);   //±8g
+  259   1          icm_simspi_w_reg_byte(ICM20602_ACCEL_CONFIG_2, 0x03); // Average 8 samples   44.8HZ
+  260   1      }
+  261          
+  262          //-------------------------------------------------------------------------------------------------------
+             -------------
+  263          //  @brief      获取ICM20602加速度计数据
+  264          //  @param      NULL
+  265          //  @return     void
+  266          //  @since      v1.0
+  267          //  Sample usage:       执行该函数后，直接查看对应的变量即可
+  268          //-------------------------------------------------------------------------------------------------------
+             -------------
+  269          void get_icm20602_accdata_simspi(void)
+  270          {
+  271   1          uint8 dat[6];
+  272   1      
+  273   1          icm_simspi_r_reg_bytes(ICM20602_ACCEL_XOUT_H, dat, 6);
+  274   1          icm_acc_x = (int16)(((uint16)dat[0] << 8 | dat[1]));
+  275   1          icm_acc_y = (int16)(((uint16)dat[2] << 8 | dat[3]));
+  276   1          icm_acc_z = (int16)(((uint16)dat[4] << 8 | dat[5]));
+  277   1      }
+  278          
+  279          //-------------------------------------------------------------------------------------------------------
+C251 COMPILER V5.60.0,  SEEKFREE_ICM20602                                                  14/06/24  16:35:48  PAGE 6   
+
+             -------------
+  280          //  @brief      获取ICM20602陀螺仪数据
+  281          //  @param      NULL
+  282          //  @return     void
+  283          //  @since      v1.0
+  284          //  Sample usage:       执行该函数后，直接查看对应的变量即可
+  285          //-------------------------------------------------------------------------------------------------------
+             -------------
+  286          void get_icm20602_gyro_simspi(void)
+  287          {
+  288   1          uint8 dat[6];
+  289   1      
+  290   1          icm_simspi_r_reg_bytes(ICM20602_GYRO_XOUT_H, dat, 6);
+  291   1      
+  292   1          icm_gyro_x = (int16)(((uint16)dat[0] << 8 | dat[1]));
+  293   1          icm_gyro_y = (int16)(((uint16)dat[2] << 8 | dat[3]));
+  294   1          icm_gyro_z = (int16)(((uint16)dat[4] << 8 | dat[5]));
+  295   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       666     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        12         29
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

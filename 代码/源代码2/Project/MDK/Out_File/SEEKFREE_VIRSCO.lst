@@ -1,0 +1,132 @@
+C251 COMPILER V5.60.0,  SEEKFREE_VIRSCO                                                    14/06/24  16:35:49  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE SEEKFREE_VIRSCO
+OBJECT MODULE PLACED IN .\Out_File\SEEKFREE_VIRSCO.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\..\Libraries\seekfree_peripheral\SEEKFREE_VIRSCO.c XSMALL INTR2 WAR
+                    -NINGLEVEL(0) BROWSE INCDIR(..\..\Libraries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_periphe
+                    -ral;..\CODE;..\USER\inc;..\USER\src) DEBUG PRINT(.\Out_File\SEEKFREE_VIRSCO.lst) TABS(2) OBJECT(.\Out_File\SEEKFREE_VIRS
+                    -CO.obj) 
+
+stmt  level    source
+
+    1          /********************************************************************************************************
+             -*************
+    2           * COPYRIGHT NOTICE
+    3           * Copyright (c) 2018,逐飞科技
+    4           * All rights reserved.
+    5           * 技术讨论QQ群：一群：179029047(已满)  二群：244861897
+    6           *
+    7           * 以下所有内容版权均属逐飞科技所有，未经允许不得用于商业用途，
+    8           * 欢迎各位使用并传播本程序，修改内容时必须保留逐飞科技的版权声明。
+    9           *
+   10           * @file          虚拟示波器协议
+   11           * @company       成都逐飞科技有限公司
+   12           * @author        逐飞科技(QQ3184284598)
+   13           * @version       查看doc内version文件 版本说明
+   14           * @Software    MDK FOR C251 V5.60
+   15           * @Taobao      https://seekfree.taobao.com/
+   16           * @date          2019-04-30
+   17           * @note        示波器下载地址：https://pan.baidu.com/s/198CMXTZsbI3HAEqNXDngBw（包含清华直�
+             -�方案资料）
+   18           ********************************************************************************************************
+             -************/
+   19          
+   20          #include "zf_uart.h"
+   21          #include "SEEKFREE_WIRELESS.h"
+   22          #include "SEEKFREE_VIRSCO.h"
+   23          
+   24          uint8 virtual_scope_data[10];
+   25          
+   26          //-------------------------------------------------------------------------------------------------------
+             -------------
+   27          //  @brief      CRC校验（内部使用，用户无需关心）
+   28          //  @param      Buf             需要进行CRC计算的数据地址
+   29          //  @param      CRC_CNT         需要进行CRC计算的数据个数
+   30          //  @return     void
+   31          //  @since      v1.0
+   32          //  Sample usage:
+   33          //-------------------------------------------------------------------------------------------------------
+             -------------
+   34          uint16 CRC_CHECK(uint8 *Buf, uint8 CRC_CNT)
+   35          {
+   36   1          uint16 CRC_Temp;
+   37   1          uint8 i, j;
+   38   1          CRC_Temp = 0xffff;
+   39   1      
+   40   1          for (i = 0; i < CRC_CNT; i++)
+   41   1          {
+   42   2              CRC_Temp ^= Buf[i];
+   43   2              for (j = 0; j < 8; j++)
+   44   2              {
+   45   3                  if (CRC_Temp & 0x01)
+   46   3                      CRC_Temp = (CRC_Temp >> 1) ^ 0xa001;
+   47   3                  else
+   48   3                      CRC_Temp = CRC_Temp >> 1;
+   49   3              }
+   50   2          }
+   51   1          return (CRC_Temp);
+C251 COMPILER V5.60.0,  SEEKFREE_VIRSCO                                                    14/06/24  16:35:49  PAGE 2   
+
+   52   1      }
+   53          
+   54          //-------------------------------------------------------------------------------------------------------
+             -------------
+   55          //  @brief      虚拟示波器数据转换函数
+   56          //  @param      data1       要发送的第一个数据
+   57          //  @param      data2       要发送的第二个数据
+   58          //  @param      data3       要发送的第三个数据
+   59          //  @param      data4       要发送的第四个数据
+   60          //  @param      *dat        转换之后存放数据的地址
+   61          //  @return     void
+   62          //  @since      v1.0
+   63          //  Sample usage:
+   64          //-------------------------------------------------------------------------------------------------------
+             -------------
+   65          void data_conversion(int16 data1, int16 data2, int16 data3, int16 data4, uint8 *dat)
+   66          {
+   67   1          uint16 CRC16;
+   68   1      
+   69   1          dat[0] = (uint8)((uint16)data1 & 0xff);
+   70   1          dat[1] = (uint8)((uint16)data1 >> 8);
+   71   1      
+   72   1          dat[2] = (uint8)((uint16)data2 & 0xff);
+   73   1          dat[3] = (uint8)((uint16)data2 >> 8);
+   74   1      
+   75   1          dat[4] = (uint8)((uint16)data3 & 0xff);
+   76   1          dat[5] = (uint8)((uint16)data3 >> 8);
+   77   1      
+   78   1          dat[6] = (uint8)((uint16)data4 & 0xff);
+   79   1          dat[7] = (uint8)((uint16)data4 >> 8);
+   80   1      
+   81   1          CRC16 = CRC_CHECK(dat, 8);
+   82   1          dat[8] = (uint8)(CRC16 & 0xff);
+   83   1          dat[9] = (uint8)(CRC16 >> 8);
+   84   1      
+   85   1          uart_putbuff(UART_4,dat,10);  //数据转换完成后，使用串口发送将数组的内容发送出
+             -去
+   86   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       177     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        10          4
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

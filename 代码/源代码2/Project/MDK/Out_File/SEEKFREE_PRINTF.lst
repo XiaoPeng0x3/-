@@ -1,0 +1,444 @@
+C251 COMPILER V5.60.0,  SEEKFREE_PRINTF                                                    14/06/24  16:35:46  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE SEEKFREE_PRINTF
+OBJECT MODULE PLACED IN .\Out_File\SEEKFREE_PRINTF.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\..\Libraries\libraries\SEEKFREE_PRINTF.c XSMALL INTR2 WARNINGLEVEL(
+                    -0) BROWSE INCDIR(..\..\Libraries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\COD
+                    -E;..\USER\inc;..\USER\src) DEBUG PRINT(.\Out_File\SEEKFREE_PRINTF.lst) TABS(2) OBJECT(.\Out_File\SEEKFREE_PRINTF.obj) 
+
+stmt  level    source
+
+    1          /********************************************************************************************************
+             -*************
+    2           * COPYRIGHT NOTICE
+    3           * Copyright (c) 2018,逐飞科技
+    4           * All rights reserved.
+    5           * 技术讨论QQ群：一群：179029047(已满)  二群：244861897 以下所有内容版权均属逐�
+             -�科技所有，未经允许不得用于商业用途，
+    6           * 欢迎各位使用并传播本程序，修改内容时必须保留逐飞科技的版权声明。
+    7           *
+    8           * @file          printf
+    9           * @company       成都逐飞科技有限公司
+   10           * @author        逐飞科技(QQ3184284598)
+   11           * @version       查看doc内version文件 版本说明
+   12           * @Software    MDK FOR C251 V5.60
+   13           * @Target core   NXP RT1064DVL6A
+   14           * @Taobao      https://seekfree.taobao.com/
+   15           * @date          2019-04-30
+   16           ********************************************************************************************************
+             -************/
+   17          
+   18          #include <stdarg.h>
+   19          #include <string.h>
+   20          
+   21          #include "SEEKFREE_PRINTF.h"
+   22          
+   23          uint8 number_conversion_ascii(uint32 dat, int8 *p, uint8 neg_type, uint8 radix)
+   24          {
+   25   1          int32 neg_dat;
+   26   1          uint32 pos_dat;
+   27   1          uint8 temp_data = 0;
+   28   1          uint8 valid_num = 0;
+   29   1      
+   30   1          if (neg_type)
+   31   1          {
+   32   2              neg_dat = (int32)dat;
+   33   2              if (neg_dat < 0)
+   34   2                  neg_dat = -neg_dat;
+   35   2              while (1)
+   36   2              {
+   37   3                  *p = neg_dat % radix + '0';
+   38   3                  neg_dat = neg_dat / radix;
+   39   3                  valid_num++;
+   40   3      
+   41   3                  if (!neg_dat)
+   42   3                      break;
+   43   3                  p++;
+   44   3              }
+   45   2          }
+   46   1          else
+   47   1          {
+   48   2              pos_dat = dat;
+   49   2              while (1)
+   50   2              {
+   51   3                  temp_data = pos_dat % radix;
+   52   3                  if (10 <= temp_data)
+   53   3                      temp_data += 'A' - 10;
+   54   3                  else
+C251 COMPILER V5.60.0,  SEEKFREE_PRINTF                                                    14/06/24  16:35:46  PAGE 2   
+
+   55   3                      temp_data += '0';
+   56   3      
+   57   3                  *p = temp_data;
+   58   3      
+   59   3                  pos_dat = pos_dat / radix;
+   60   3                  valid_num++;
+   61   3      
+   62   3                  if (!pos_dat)
+   63   3                      break;
+   64   3                  p++;
+   65   3              }
+   66   2          }
+   67   1          return valid_num;
+   68   1      }
+   69          
+   70          void printf_reverse_order(int8 *d_buff, uint32 len)
+   71          {
+   72   1          uint32 i;
+   73   1          int8 temp_data;
+   74   1          for (i = 0; i < len / 2; i++)
+   75   1          {
+   76   2              temp_data = d_buff[len - 1 - i];
+   77   2              d_buff[len - 1 - i] = d_buff[i];
+   78   2              d_buff[i] = temp_data;
+   79   2          }
+   80   1      }
+   81          
+   82          // void printf(const int8 *format, ...)
+   83          //{
+   84          //#if(PRINTF)     //如果宏定义PRINTF为0 则不编译printf函数内容，调用printf没有任何�
+             -�作
+   85          //     va_list arg;
+   86          //  va_start(arg, format);
+   87          //
+   88          //  while (*format)
+   89          //  {
+   90          //    int8 ret = *format;
+   91          //    if (ret == '%')
+   92          //    {
+   93          //      switch (*++format)
+   94          //      {
+   95          //                 case 'a':// 十六进制p计数法输出浮点数 暂未实现
+   96          //                 {
+   97          //
+   98          //
+   99          //                 }break;
+  100          //
+  101          //
+  102          //                 case 'c':// 一个字符
+  103          //                 {
+  104          //                     int8 ch = (int8)va_arg(arg, uint32);
+  105          //                     uart_putchar(DEBUG_UART, (int8)ch);
+  106          //
+  107          //                 }break;
+  108          //
+  109          //
+  110          //                 case 'd':
+  111          //                 case 'i':// 有符号十进制整数
+  112          //                 {
+  113          //                     int8 vstr[33];
+  114          //                     int32 ival = (int32)va_arg(arg, int32);
+  115          //                     uint8 vlen = number_conversion_ascii((uint32)ival, vstr, 1, 10);
+  116          //                     if(ival<0)  uart_putchar(DEBUG_UART, '-');
+  117          //                     printf_reverse_order(vstr,vlen);
+  118          //                     uart_putbuff(DEBUG_UART, (uint8 *)vstr,vlen);
+  119          //                 }break;
+C251 COMPILER V5.60.0,  SEEKFREE_PRINTF                                                    14/06/24  16:35:46  PAGE 3   
+
+  120          //
+  121          //                 case 'f':// 浮点数，输出小数点后六位  不能指定输出精度
+  122          //                 case 'F':// 浮点数，输出小数点后六位  不能指定输出精度
+  123          //                 {
+  124          //                     int8 vstr[33];
+  125          //                     double ival = (double)va_arg(arg, double);
+  126          //                     uint8 vlen = number_conversion_ascii((uint32)(int32)ival, vstr, 1, 10);
+  127          //                     if(ival<0)  uart_putchar(DEBUG_UART, '-');
+  128          //                     printf_reverse_order(vstr,vlen);
+  129          //                     uart_putbuff(DEBUG_UART, (uint8 *)vstr,vlen);
+  130          //                     uart_putchar(DEBUG_UART, '.');
+  131          
+  132          //                    ival = ((double)ival - (int32)ival)*1000000;
+  133          //                    vlen = number_conversion_ascii((uint32)(int32)ival, vstr, 1, 10);
+  134          //              while(6>vlen)
+  135          //                    {
+  136          //                        vstr[vlen] = '0';
+  137          //                        vlen++;
+  138          //                    }
+  139          //                    printf_reverse_order(vstr,vlen);
+  140          //                    uart_putbuff(DEBUG_UART, (uint8 *)vstr,vlen);
+  141          //                    break;
+  142          //                }
+  143          //
+  144          //                case 'u':// 无符号十进制整数
+  145          //                {
+  146          //                    int8 vstr[33];
+  147          //                    uint32 ival = (uint32)va_arg(arg, uint32);
+  148          //                    uint8 vlen = number_conversion_ascii(ival, vstr, 0, 10);
+  149          //                    printf_reverse_order(vstr,vlen);
+  150          //                    uart_putbuff(DEBUG_UART, (uint8 *)vstr,vlen);
+  151          //                }break;
+  152          //
+  153          //                case 'o':// 无符号八进制整数
+  154          //                {
+  155          //                    int8 vstr[33];
+  156          //                    uint32 ival = (uint32)va_arg(arg, uint32);
+  157          //                    uint8 vlen = number_conversion_ascii(ival, vstr, 0, 8);
+  158          //                    printf_reverse_order(vstr,vlen);
+  159          //                    uart_putbuff(DEBUG_UART, (uint8 *)vstr,vlen);
+  160          //
+  161          //                }break;
+  162          //
+  163          //                case 'x':// 无符号十六进制整数
+  164          //                case 'X':// 无符号十六进制整数
+  165          //                {
+  166          //                    int8 vstr[33];
+  167          //                    uint32 ival = (uint32)va_arg(arg, uint32);
+  168          //                    uint8 vlen = number_conversion_ascii(ival, vstr, 0, 16);
+  169          //                    printf_reverse_order(vstr,vlen);
+  170          //                    uart_putbuff(DEBUG_UART, (uint8 *)vstr,vlen);
+  171          //                }break;
+  172          //
+  173          //
+  174          //                case 's':// 字符串
+  175          //                {
+  176          //                    int8 *pc = va_arg(arg, int8 *);
+  177          //                    while (*pc)
+  178          //                    {
+  179          //                        uart_putchar(DEBUG_UART, (int8)(*pc));
+  180          //                        pc++;
+  181          //                    }
+  182          //                }break;
+  183          //
+  184          //                case 'p':// 以16进制形式输出指针
+  185          //                {
+C251 COMPILER V5.60.0,  SEEKFREE_PRINTF                                                    14/06/24  16:35:46  PAGE 4   
+
+  186          //                    int8 vstr[33];
+  187          //                    uint32 ival = (uint32)va_arg(arg, uint32);
+  188          //                    uint8 vlen = number_conversion_ascii(ival, vstr, 0, 16);
+  189          //                    printf_reverse_order(vstr,8);
+  190          //                    uart_putbuff(DEBUG_UART, (uint8 *)vstr,8);
+  191          //
+  192          //                }break;
+  193          //
+  194          //
+  195          //                case '%':// 输出字符%
+  196          //                {
+  197          //                    uart_putchar(DEBUG_UART, '%');
+  198          //                }break;
+  199          
+  200          //                default:break;
+  201          //      }
+  202          //    }
+  203          //    else
+  204          //    {
+  205          //      uart_putchar(DEBUG_UART, (int8)(*format));
+  206          //    }
+  207          //    format++;
+  208          //  }
+  209          //  va_end(arg);
+  210          //#endif
+  211          //}
+  212          
+  213          uint32 zf_sprintf(int8 *buff, const int8 *format, ...)
+  214          {
+  215   1          uint32 buff_len = 0;
+  216   1          va_list arg;
+  217   1          va_start(arg, format);
+  218   1      
+  219   1          while (*format)
+  220   1          {
+  221   2              int8 ret = *format;
+  222   2              if (ret == '%')
+  223   2              {
+  224   3                  switch (*++format)
+  225   3                  {
+  226   4                  case 'a': // 十六进制p计数法输出浮点数 暂未实现
+  227   4                  {
+  228   5                  }
+  229   4                  break;
+  230   4      
+  231   4                  case 'c': // 一个字符
+  232   4                  {
+  233   5                      int8 ch = (int8)va_arg(arg, uint32);
+  234   5                      *buff = ch;
+  235   5                      buff++;
+  236   5                      buff_len++;
+  237   5                  }
+  238   4                  break;
+  239   4      
+  240   4                  case 'd':
+  241   4                  case 'i': // 有符号十进制整数
+  242   4                  {
+  243   5                      int8 vstr[33];
+  244   5                      int32 ival = (int32)va_arg(arg, int32);
+  245   5                      uint8 vlen = number_conversion_ascii((uint32)ival, vstr, 1, 10);
+  246   5      
+  247   5                      if (ival < 0)
+  248   5                      {
+  249   6                          vstr[vlen] = '-';
+  250   6                          vlen++;
+  251   6                      }
+C251 COMPILER V5.60.0,  SEEKFREE_PRINTF                                                    14/06/24  16:35:46  PAGE 5   
+
+  252   5                      printf_reverse_order(vstr, vlen);
+  253   5                      memcpy(buff, vstr, vlen);
+  254   5                      buff += vlen;
+  255   5                      buff_len += vlen;
+  256   5                  }
+  257   4                  break;
+  258   4      
+  259   4                  case 'f': // 浮点数，输出小数点后六位  不能指定输出精度
+  260   4                  case 'F': // 浮点数，输出小数点后六位  不能指定输出精度
+  261   4                  {
+  262   5                      int8 vstr[33];
+  263   5                      double ival = (double)va_arg(arg, double);
+  264   5                      uint8 vlen = number_conversion_ascii((uint32)(int32)ival, vstr, 1, 10);
+  265   5      
+  266   5                      if (ival < 0)
+  267   5                      {
+  268   6                          vstr[vlen] = '-';
+  269   6                          vlen++;
+  270   6                      }
+  271   5                      printf_reverse_order(vstr, vlen);
+  272   5                      memcpy(buff, vstr, vlen);
+  273   5                      buff += vlen;
+  274   5                      buff_len += vlen;
+  275   5      
+  276   5                      ival = ((double)ival - (int32)ival) * 1000000;
+  277   5                      if (ival)
+  278   5                      {
+  279   6                          vlen = number_conversion_ascii((uint32)(int32)ival, vstr, 1, 10);
+  280   6                      }
+  281   5                      else
+  282   5                      {
+  283   6                          vstr[0] = vstr[1] = vstr[2] = vstr[3] = vstr[4] = vstr[5] = '0';
+  284   6                          vlen = 6;
+  285   6                      }
+  286   5      
+  287   5                      while (6 > vlen)
+  288   5                      {
+  289   6                          vstr[vlen] = '0';
+  290   6                          vlen++;
+  291   6                      }
+  292   5      
+  293   5                      vstr[vlen] = '.';
+  294   5                      vlen++;
+  295   5      
+  296   5                      printf_reverse_order(vstr, vlen);
+  297   5                      memcpy(buff, vstr, vlen);
+  298   5                      buff_len += vlen;
+  299   5      
+  300   5                      break;
+  301   5                  }
+  302   4      
+  303   4                  case 'u': // 无符号十进制整数
+  304   4                  {
+  305   5                      int8 vstr[33];
+  306   5                      uint32 ival = (uint32)va_arg(arg, uint32);
+  307   5                      uint8 vlen = number_conversion_ascii(ival, vstr, 0, 10);
+  308   5      
+  309   5                      printf_reverse_order(vstr, vlen);
+  310   5                      memcpy(buff, vstr, vlen);
+  311   5                      buff += vlen;
+  312   5                      buff_len += vlen;
+  313   5                  }
+  314   4                  break;
+  315   4      
+  316   4                  case 'o': // 无符号八进制整数
+  317   4                  {
+C251 COMPILER V5.60.0,  SEEKFREE_PRINTF                                                    14/06/24  16:35:46  PAGE 6   
+
+  318   5                      int8 vstr[33];
+  319   5                      uint32 ival = (uint32)va_arg(arg, uint32);
+  320   5                      uint8 vlen = number_conversion_ascii(ival, vstr, 0, 8);
+  321   5      
+  322   5                      printf_reverse_order(vstr, vlen);
+  323   5                      memcpy(buff, vstr, vlen);
+  324   5                      buff += vlen;
+  325   5                      buff_len += vlen;
+  326   5                  }
+  327   4                  break;
+  328   4      
+  329   4                  case 'x': // 无符号十六进制整数
+  330   4                  case 'X': // 无符号十六进制整数
+  331   4                  {
+  332   5                      int8 vstr[33];
+  333   5                      uint32 ival = (uint32)va_arg(arg, uint32);
+  334   5                      uint8 vlen = number_conversion_ascii(ival, vstr, 0, 16);
+  335   5      
+  336   5                      printf_reverse_order(vstr, vlen);
+  337   5                      memcpy(buff, vstr, vlen);
+  338   5                      buff += vlen;
+  339   5                      buff_len += vlen;
+  340   5                  }
+  341   4                  break;
+  342   4      
+  343   4                  case 's': // 字符串
+  344   4                  {
+  345   5                      int8 *pc = va_arg(arg, int8 *);
+  346   5                      while (*pc)
+  347   5                      {
+  348   6                          *buff = *pc;
+  349   6                          buff++;
+  350   6                          buff_len++;
+  351   6                          pc++;
+  352   6                      }
+  353   5                  }
+  354   4                  break;
+  355   4      
+  356   4                  case 'p': // 以16进制形式输出指针
+  357   4                  {
+  358   5                      int8 vstr[33];
+  359   5                      uint32 ival = (uint32)va_arg(arg, uint32);
+  360   5                      // uint8 vlen = number_conversion_ascii(ival, vstr, 0, 16);
+  361   5                      number_conversion_ascii(ival, vstr, 0, 16);
+  362   5      
+  363   5                      printf_reverse_order(vstr, 8);
+  364   5                      memcpy(buff, vstr, 8);
+  365   5                      buff += 8;
+  366   5                      buff_len += 8;
+  367   5                  }
+  368   4                  break;
+  369   4      
+  370   4                  case '%': // 输出字符%
+  371   4                  {
+  372   5                      *buff = '%';
+  373   5                      buff++;
+  374   5                      buff_len++;
+  375   5                  }
+  376   4                  break;
+  377   4      
+  378   4                  default:
+  379   4                      break;
+  380   4                  }
+  381   3              }
+  382   2              else
+  383   2              {
+C251 COMPILER V5.60.0,  SEEKFREE_PRINTF                                                    14/06/24  16:35:46  PAGE 7   
+
+  384   3                  *buff = (int8)(*format);
+  385   3                  buff++;
+  386   3                  buff_len++;
+  387   3              }
+  388   2              format++;
+  389   2          }
+  390   1          va_end(arg);
+  391   1      
+  392   1          return buff_len;
+  393   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =      1482     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =    ------         96
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

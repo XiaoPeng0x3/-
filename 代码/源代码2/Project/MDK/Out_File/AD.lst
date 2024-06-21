@@ -1,0 +1,687 @@
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE AD
+OBJECT MODULE PLACED IN .\Out_File\AD.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\CODE\AD.c XSMALL INTR2 WARNINGLEVEL(0) BROWSE INCDIR(..\..\Librarie
+                    -s\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src) DEBU
+                    -G PRINT(.\Out_File\AD.lst) TABS(2) OBJECT(.\Out_File\AD.obj) 
+
+stmt  level    source
+
+    1          /*******************************************************************************
+    2           * 电磁信号处理程序   AD.c
+    3           *
+    4           *
+    5           * @file name:              AD.c
+    6           * @description:           电磁信号处理程序
+    7           * @author:                ---
+    8           * @version：              v0.0.1
+    9           * @date：                 2022.03.03
+   10           * @note:
+   11           *******************************************************************************/
+   12          #include "AD.h"
+   13          #include "math.h"
+   14          
+   15          #define N 12
+   16          
+   17          float AD_out;   // AD 处理输出
+   18          float AD_diff;  //左右电感差
+   19          float AD_sum;   //左右电感和
+   20          float AD_level; //数值电感差
+   21          float AD_vertical;
+   22          float AD_N;
+   23          float AD_position = 0; //丢线参数
+   24          int AD_flag = 0;       //上次AD_out值的正负
+   25          int32 count_isr = 0;
+   26          
+   27          float ad_value0[N]; //储存采集的电感值
+   28          float ad_value1[N];
+   29          float ad_value2[N];
+   30          float ad_value3[N];
+   31          float ad_value4[N];
+   32          float ad_value5[N];
+   33          
+   34          float ad_values[6] = {0.0}; //存放每个电感处理后的平均值
+   35          float ad_answer[6];         //归一化后的值
+   36          
+   37          int line_flag = 0;  //丢线标志位
+   38          float last_AD_out;  //丢线AD处理
+   39          float AD_out_1 = 0; //用于小部分滞后
+   40          float AD_out_2 = 0;
+   41          int8 AD_out_flag = 0; //滞后标志位
+   42          
+   43          int8 Slope_N = 0; //坡道标志
+   44          
+   45          /*******************************************************************************
+   46           * function name:      Q_rsqrt(float number)
+   47           * description:    开根号
+   48           * author:             ---
+   49           * version:            v0.0.1
+   50           * date：               2022.04.03
+   51           * note:
+   52           *******************************************************************************/
+   53          float Q_rsqrt(float number)
+   54          {
+   55   1        long i;
+   56   1        float x, y;
+   57   1        const float f = 1.5F;
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 2   
+
+   58   1        x = number * 0.5F;
+   59   1        y = number;
+   60   1        i = *(long *)&y;
+   61   1        i = 0x5f3759df - (i >> 1);
+   62   1      
+   63   1        y = *(float *)&i;
+   64   1        y = y * (f - (x * y * y));
+   65   1        y = y * (f - (x * y * y));
+   66   1        return number * y;
+   67   1      }
+   68          
+   69          /*******************************************************************************
+   70           * @functionname:        ADC_Ave( )
+   71           * @description:         电感值2次求平均函数
+   72           * @author:              ---
+   73           * @version：             v0.0.1
+   74           * @date：                2022.03.03
+   75           * @note:
+   76           *******************************************************************************/
+   77          
+   78          float ADC_Ave(uint8 adcn, uint8 resolution) //管脚，分辨率
+   79          {
+   80   1        float u, j;
+   81   1        u = adc_once(adcn, resolution);
+   82   1        j = adc_once(adcn, resolution);
+   83   1        return ((u + j) / 2);
+   84   1      }
+   85          
+   86          /*******************************************************************************
+   87           * function name:      ADC_Get_deal( )
+   88           * description:        电感值采集和处理函数
+   89           * author:             ---
+   90           * version:            v0.0.1
+   91           * date：               2022.03.05
+   92           * note:
+   93           *******************************************************************************/
+   94          void ADC_Get_deal()
+   95          {
+   96   1        int i;
+   97   1        count_isr++;
+   98   1        //电感原值
+   99   1        for (i = 0; i < N; i++)
+  100   1        {
+  101   2          ad_value0[i] = ADC_Ave(ADC_R_1, ADC_12BIT);
+  102   2          ad_value1[i] = ADC_Ave(ADC_R_M, ADC_12BIT);
+  103   2          ad_value2[i] = ADC_Ave(ADC_M, ADC_12BIT);
+  104   2          ad_value3[i] = ADC_Ave(ADC_L_M, ADC_12BIT);
+  105   2          ad_value4[i] = ADC_Ave(ADC_L_1, ADC_12BIT);
+  106   2          // ad_value5[i] = ADC_Ave(ADC_B, ADC_12BIT);
+  107   2        }
+  108   1        //处理
+  109   1      
+  110   1        for (i = 0; i < N; i++)
+  111   1        {
+  112   2          ad_values[0] += ad_value0[i];
+  113   2          ad_values[1] += ad_value1[i];
+  114   2          ad_values[2] += ad_value2[i];
+  115   2          ad_values[3] += ad_value3[i];
+  116   2          ad_values[4] += ad_value4[i];
+  117   2          // ad_values[5] += ad_value5[i];
+  118   2        }
+  119   1      
+  120   1        //得到平均值
+  121   1        ad_values[0] /= 12;
+  122   1        ad_values[1] /= 12;
+  123   1        ad_values[2] /= 12;
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 3   
+
+  124   1        ad_values[3] /= 12;
+  125   1        ad_values[4] /= 12;
+  126   1        // ad_values[5] /= 12;
+  127   1      
+  128   1        //归一化处理
+  129   1        ad_answer[0] = (ad_values[0] / 4095);
+  130   1        ad_answer[1] = (ad_values[1] / 4095);
+  131   1        ad_answer[2] = (ad_values[2] / 4095);
+  132   1        ad_answer[3] = (ad_values[3] / 4095);
+  133   1        ad_answer[4] = (ad_values[4] / 4095);
+  134   1        // ad_answer[5] = (ad_values[5] / 4095);
+  135   1        ad_answer[0] *= 300;
+  136   1        ad_answer[1] *= 300;
+  137   1        ad_answer[2] *= 300;
+  138   1        ad_answer[3] *= 300;
+  139   1        ad_answer[4] *= 300;
+  140   1        // ad_answer[5] *= 300;
+  141   1      
+  142   1        AD_diff = Q_rsqrt(ad_answer[0]) - Q_rsqrt(ad_answer[4]);
+  143   1        AD_sum = ad_answer[0] + ad_answer[2] + ad_answer[4];
+  144   1        // AD_level = fabs((ad_answer[0] - ad_answer[4])/(ad_answer[0] + ad_answer[4]))*100;
+  145   1        AD_level = fabs(ad_answer[0] + ad_answer[4]);
+  146   1        AD_level = Q_rsqrt(AD_level);
+  147   1        AD_vertical = ad_answer[1] + ad_answer[3];
+  148   1        AD_vertical = Q_rsqrt(AD_vertical) + Q_rsqrt(ad_answer[2]);
+  149   1        AD_N = 2 * ad_answer[2] - ad_answer[0] - ad_answer[4];
+  150   1      
+  151   1        if (line_flag == 0 && Y_steer == 0)
+  152   1        {
+  153   2          if (AD_out_flag == 0)
+  154   2          {
+  155   3            AD_out_1 = (AD_diff) / (AD_sum) * (550 - ad_answer[2]);
+  156   3            AD_out_flag = 1;
+  157   3          }
+  158   2          else if (AD_out_flag == 1)
+  159   2          {
+  160   3            AD_out_2 = (AD_diff) / (AD_sum) * (550 - ad_answer[2]);
+  161   3            AD_out_flag = 0;
+  162   3          }
+  163   2          AD_out = 0.3 * AD_out_1 + 0.7 * AD_out_2;
+  164   2          if (ad_answer[0] - ad_answer[2] >= 30 || ad_answer[4] - ad_answer[2] >= 30)
+  165   2            AD_out = AD_out_2;
+  166   2          else if (ad_answer[0] - ad_answer[2] >= 0 && ad_answer[0] - ad_answer[2] < 10 || ad_answer[4] - ad_an
+             -swer[2] >= 0 && ad_answer[4] - ad_answer[2] < 10)
+  167   2            AD_out = 0.25 * AD_out_1 + 0.75 * AD_out_2;
+  168   2          else if (ad_answer[0] - ad_answer[2] >= 10 && ad_answer[0] - ad_answer[2] < 20 || ad_answer[4] - ad_a
+             -nswer[2] >= 10 && ad_answer[4] - ad_answer[2] < 20)
+  169   2            AD_out = 0.2 * AD_out_1 + 0.8 * AD_out_2;
+  170   2          else if (ad_answer[0] - ad_answer[2] >= 20 && ad_answer[0] - ad_answer[2] < 30 || ad_answer[4] - ad_a
+             -nswer[2] >= 20 && ad_answer[4] - ad_answer[2] < 30)
+  171   2            AD_out = 0.1 * AD_out_1 + 0.9 * AD_out_2;
+  172   2          //丢线处理
+  173   2          if ((ad_answer[0] + ad_answer[2] + ad_answer[4]) < 120)
+  174   2          {
+  175   3            // expited_L_R = 150;
+  176   3            if (AD_out <= 0)
+  177   3              last_AD_out = -28;
+  178   3            else if (AD_out > 0)
+  179   3              last_AD_out = 28;
+  180   3            line_flag = 1;
+  181   3          }
+  182   2        }
+  183   1        if ((ad_answer[0] + ad_answer[2] + ad_answer[4]) >= 120)
+  184   1        {
+  185   2          line_flag = 0;
+  186   2        }
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 4   
+
+  187   1        if (line_flag == 1)
+  188   1        {
+  189   2          AD_out = last_AD_out;
+  190   2        }
+  191   1        if (Y_steer == 1) //三岔AD处理
+  192   1        {
+  193   2          AD_out = (AD_diff) / (AD_sum)*280;
+  194   2        }
+  195   1        if (Y_steer == 0 && count_motor != 0)
+  196   1        {
+  197   2          if (AD_out <= 5 && AD_out >= -5 && (ad_answer[1] + ad_answer[3]) <= 100) //直道加速，弯道减�
+             -�
+  198   2          {
+  199   3            expited_L_R += 1;
+  200   3          }
+  201   2          else
+  202   2          {
+  203   3            expited_L_R = SPEED_LOW_R;
+  204   3          }
+  205   2          if (expited_L_R >= SPEED_HIGH)
+  206   2            expited_L_R = SPEED_LOW;
+  207   2          if (ad_answer[0] - ad_answer[2] > 30 && ad_answer[0] - ad_answer[2] < 60 || ad_answer[4] - ad_answer[
+             -2] > 30 && ad_answer[4] - ad_answer[2] < 60 || line_flag == 1)
+  208   2          {
+  209   3            expited_L_R = SPEED_LOSS;
+  210   3          }
+  211   2        }
+  212   1        //大湾减速
+  213   1      
+  214   1        //特殊元素检测
+  215   1        // Cross();       //十字
+  216   1        Slope_Process(); //坡道
+  217   1        if (Slope_N == 0)
+  218   1        {
+  219   2          Y_deal(); //三叉
+  220   2        }
+  221   1      }
+  222          // stop_1();   //停车
+  223          //  round_deal();  //环岛
+  224          /*******************************************************************************
+  225           * function name:      Y_deal( )
+  226           * description:    三叉处理
+  227           * author:             ---
+  228           * version:            v0.0.1
+  229           * date：               2022.04.03
+  230           * note:
+  231           *******************************************************************************/
+  232          
+  233          //三岔变量
+  234          int8 Y_steer = 0; //三岔标志位
+  235          #define NO_Y 0
+  236          #define Y_L_flag 1
+  237          #define Y_R_flag 2
+  238          #define Real_Out_Y 3
+  239          #define Out_Y 4
+  240          int8 Y_state = 0;      //三叉判断
+  241          int8 Y_flag = 0;       //左右三叉标志
+  242          uint32 Y_distante = 0; //积分距离
+  243          
+  244          void Y_deal()
+  245          {
+  246   1        switch (Y_state)
+  247   1        {
+  248   2        case NO_Y: //没有三叉时
+  249   2      
+  250   2          if (ad_answer[0] <= 120 && ad_answer[0] >= 50 && // 90 23 150 10 100 4 16
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 5   
+
+  251   2              ad_answer[4] <= 120 && ad_answer[4] >= 50 &&
+  252   2              ad_answer[1] >= 0 && ad_answer[1] <= 30 &&
+  253   2              ad_answer[3] >= 0 && ad_answer[3] <= 30 &&
+  254   2              ad_answer[2] <= 160 && ad_answer[2] >= 70 &&
+  255   2              AD_level > 10 && AD_level < 15 && AD_vertical > 10 &&
+  256   2              AD_vertical < 18 && AD_N > 10 && AD_N < 40)
+  257   2          {
+  258   3            expited_L_R = SPEED_Y_IN; //调节速度期望
+  259   3            P77 = 1;                  //蜂鸣器响
+  260   3            Y_steer = 1;
+  261   3            if (Y_flag == 1)
+  262   3            {
+  263   4              Y_state = Y_L_flag;
+  264   4              Y_flag = 0;
+  265   4            }
+  266   3            else if (Y_flag == 0)
+  267   3            {
+  268   4              Y_state = Y_L_flag;
+  269   4              Y_flag = 1;
+  270   4            }
+  271   3          }
+  272   2          else
+  273   2          {
+  274   3            Y_steer = 0;
+  275   3            Y_state = NO_Y;
+  276   3          }
+  277   2      
+  278   2          break;
+  279   2        case Y_L_flag:
+  280   2          AD_out = 20;
+  281   2          Y_distante += (R_value + L_value) / 2;
+  282   2          if (Y_distante >= DISTANCE_Y_IN_L)
+  283   2          {
+  284   3            expited_L_R = SPEED_Y_L;
+  285   3            Y_state = Real_Out_Y;
+  286   3            Y_distante = 0;
+  287   3            P77 = 0;
+  288   3          }
+  289   2          break;
+  290   2        case Y_R_flag:
+  291   2          AD_out = -20;
+  292   2          Y_distante += (R_value + L_value) / 2;
+  293   2          if (Y_distante >= DISTANCE_Y_IN_R)
+  294   2          {
+  295   3            Y_state = Real_Out_Y;
+  296   3            expited_L_R = SPEED_Y_R;
+  297   3            Y_distante = 0;
+  298   3            P77 = 0;
+  299   3          }
+  300   2          break;
+  301   2        case Real_Out_Y:
+  302   2          Y_distante += (R_value + L_value) / 2;
+  303   2          if (Y_distante >= DISTANCE_Y_OUT)
+  304   2          {
+  305   3            Y_state = NO_Y;
+  306   3            Y_distante = 0;
+  307   3            expited_L_R = SPEED_Y_OUT;
+  308   3            Y_steer = 0;
+  309   3          }
+  310   2          break;
+  311   2        }
+  312   1      }
+  313          /*******************************************************************************
+  314           * function name:      round_deal( )
+  315           * description:           环岛处理
+  316           * author:                 ---
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 6   
+
+  317           * version:                 v0.0.1
+  318           * date：                  2022.04.03
+  319           * note:
+  320           *******************************************************************************/
+  321          #define NO_round 0
+  322          #define in_round_flag 1
+  323          #define round_L 2
+  324          #define round_R 3
+  325          #define Real_Out_round 4
+  326          
+  327          int8 round_state = 0;      //环岛状态判断
+  328          uint32 round_distante = 0; //环岛积分距离
+  329          float gyro_angle = 0;      //环岛陀螺仪角度积分
+  330          uint16 count_round = 0;    //环岛标志
+  331          
+  332          void round_deal()
+  333          {
+  334   1        switch (round_state)
+  335   1        {
+  336   2        case NO_round:
+  337   2          if (ad_answer[0] >= 200 && ad_answer[4] >= 200 && ad_answer[2] >= 200 &&
+  338   2              (ad_answer[1] + ad_answer[3]) >= 60) //环岛标志
+  339   2          {
+  340   3            // round_state = in_round_flag;
+  341   3            P77 = 1; //蜂鸣器响
+  342   3            ++count_round;
+  343   3            if (count_round == 1)
+  344   3            {
+  345   4              round_state = Real_Out_round;
+  346   4            }
+  347   3            else if (count_round == 2)
+  348   3            {
+  349   4              count_round = 0;
+  350   4              round_state = NO_round;
+  351   4              P77 = 0;
+  352   4            }
+  353   3          }
+  354   2          break;
+  355   2        case in_round_flag:
+  356   2          AD_out = (0.8 * ad_answer[1] - 0.8 * ad_answer[3]) / (0.2 * ad_answer[2] + 0.8 * ad_answer[1] + 0.8 *
+             - ad_answer[3] + 0.2 * ad_answer[0] + 0.2 * ad_answer[4]) * 40;
+  357   2          round_distante += (R_value + L_value) / 2;
+  358   2          if (round_distante >= DISTANCE_ROUND_IN) //入环岛积分距离
+  359   2          {
+  360   3            round_distante = 0;
+  361   3            round_state = NO_round;
+  362   3            P77 = 0;
+  363   3          }
+  364   2          break;
+  365   2        case Real_Out_round:
+  366   2          P77 = 1;
+  367   2          round_distante += (R_value + L_value) / 2;
+  368   2          if (round_distante >= DISTANCE_ROUND_OUT) //出环岛直线距离积分
+  369   2          {
+  370   3            round_state = in_round_flag;
+  371   3            round_distante = 0;
+  372   3          }
+  373   2          break;
+  374   2        }
+  375   1      }
+  376          /*******************************************************************************
+  377           * function name:      Y_deal( )
+  378           * description:    坡道检测
+  379           * author:             ---
+  380           * version:            v0.0.1
+  381           * date：               2022.05.01
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 7   
+
+  382           * note:
+  383           *******************************************************************************/
+  384          #define Slope_IN 1
+  385          #define Slope_out 2
+  386          #define no_Slope 0
+  387          int Slope_Flag = 0;
+  388          float Slope_Distante = 0;
+  389          float Gyro_Pitch_Angle = 0;
+  390          void Slope_Process(void)
+  391          {
+  392   1        switch (Slope_Flag)
+  393   1        {
+  394   2        case no_Slope:
+  395   2          if (gyro_y > 0.5 || gyro_y < -0.5)
+  396   2            Gyro_Pitch_Angle += (gyro_y * 0.00225f);
+  397   2          if (fabs(Gyro_Pitch_Angle) >= 3)
+  398   2          {
+  399   3            Slope_Flag = Slope_IN;
+  400   3            Slope_N = 1;
+  401   3            Gyro_Pitch_Angle = 0;
+  402   3            // P77=1;
+  403   3          }
+  404   2          if (count_isr >= 500)
+  405   2          {
+  406   3            Gyro_Pitch_Angle = 0;
+  407   3            count_isr = 0;
+  408   3          }
+  409   2          break;
+  410   2      
+  411   2        case Slope_IN:
+  412   2          Slope_Distante += (L_value + R_value) / 2;
+  413   2          if (Slope_Distante > DISTANCE_SLOPE)
+  414   2          {
+  415   3            Slope_Flag = no_Slope;
+  416   3            Slope_N = 0;
+  417   3            Slope_Distante = 0;
+  418   3            // P77=0;
+  419   3          }
+  420   2          break;
+  421   2        }
+  422   1      }
+  423          
+  424          //停车检测
+  425          int ganhuangguan = 0;
+  426          #define stop_1_no 0
+  427          #define stop_1_int 1
+  428          #define stop_1_out 2
+  429          #define stop_1_L 3
+  430          #define stop_1_R 4
+  431          #define stop_1_stop 5
+  432          int8 P32_Status = 0;
+  433          int8 stop_1_flag;
+  434          int32 parking_distante = 0;
+  435          int Parking_Count = 0;
+  436          int8 parking_flag_L_R = 1; //区分左入库还是右入
+  437          int8 stop_flag = 0;
+  438          int16 stop_speed = 0;
+  439          void Parking_Fuction()
+  440          {
+  441   1        switch (stop_1_flag)
+  442   1        {
+  443   2        case stop_1_no:
+  444   2        {
+  445   3          if (P32 == 1)
+  446   3          {
+  447   4            ganhuangguan = ganhuangguan + 1;
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 8   
+
+  448   4            stop_1_flag = stop_1_int;
+  449   4            P77 = 1;
+  450   4          }
+  451   3          break;
+  452   3        }
+  453   2        case stop_1_int:
+  454   2        {
+  455   3          if (ganhuangguan < 2)
+  456   3          {
+  457   4            parking_distante += (L_value + R_value) / 2;
+  458   4            if (parking_distante >= DISTANCE_STOP)
+  459   4            {
+  460   5              parking_distante = 0;
+  461   5              stop_1_flag = stop_1_no;
+  462   5              P77 = 0;
+  463   5            }
+  464   4          }
+  465   3          if (ganhuangguan >= 2)
+  466   3          {
+  467   4            expited_L_R = 0;
+  468   4            stop_flag = 1;
+  469   4            if ((L_value + R_value) / 2 == 0)
+  470   4            {
+  471   5              stop_speed++;
+  472   5            }
+  473   4            if (stop_speed >= 100)
+  474   4            {
+  475   5              stop_1_flag = stop_1_out;
+  476   5              stop_speed = 0;
+  477   5            }
+  478   4          }
+  479   3          break;
+  480   3        }
+  481   2      
+  482   2        case stop_1_out:
+  483   2        {
+  484   3          expited_L_R = +200;
+  485   3          if ((L_value + R_value) / 2 > 0)
+  486   3          {
+  487   4            // AD_out = -AD_out;
+  488   4            parking_distante += (L_value + R_value) / 2;
+  489   4          }
+  490   3          if (parking_distante >= 0)
+  491   3          {
+  492   4            expited_L_R = 0;
+  493   4            if ((L_value + R_value) / 2 == 0)
+  494   4            {
+  495   5              stop_speed++;
+  496   5            }
+  497   4            if (stop_speed >= 100)
+  498   4            {
+  499   5              stop_speed = 0;
+  500   5      
+  501   5              if (parking_flag_L_R == 0)
+  502   5              {
+  503   6                parking_distante = 0;
+  504   6                stop_1_flag = stop_1_L;
+  505   6              }
+  506   5              if (parking_flag_L_R == 1)
+  507   5              {
+  508   6                parking_distante = 0;
+  509   6                stop_1_flag = stop_1_R;
+  510   6              }
+  511   5            }
+  512   4          }
+  513   3          break;
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 9   
+
+  514   3        }
+  515   2        case stop_1_L:
+  516   2        {
+  517   3          expited_L_R = SPEED_INGARAGE;
+  518   3          AD_out = -STEER_INGARAGE;
+  519   3          if ((L_value + R_value) / 2 < 0)
+  520   3            parking_distante += (L_value + R_value) / 2;
+  521   3          if (parking_distante <= DISTANCE_INGARAGE)
+  522   3          {
+  523   4            //  parking_distante=0;
+  524   4            expited_L_R = 0;
+  525   4          }
+  526   3          break;
+  527   3        }
+  528   2        case stop_1_R:
+  529   2        {
+  530   3          expited_L_R = SPEED_INGARAGE;
+  531   3          AD_out = STEER_INGARAGE;
+  532   3          if ((L_value + R_value) / 2 < 0)
+  533   3            parking_distante += (L_value + R_value) / 2;
+  534   3          if (parking_distante <= DISTANCE_INGARAGE)
+  535   3          {
+  536   4            //  parking_distante=0;
+  537   4            expited_L_R = 0;
+  538   4          }
+  539   3          break;
+  540   3        }
+  541   2        }
+  542   1      }
+  543          //停车检测
+  544          /*int ganhuangguan = 0;
+  545          #define stop_1_no 0
+  546          #define stop_1_int 1
+  547          int8 P32_Status = 0;
+  548          int8 stop_1_flag;
+  549          int32 parking_distante = 0;
+  550          int Parking_Count = 0;
+  551          void Parking_Fuction()
+  552          {
+  553            switch (stop_1_flag)
+  554            {
+  555            case stop_1_no:
+  556              if (P32 == 1)
+  557              {
+  558                ganhuangguan = ganhuangguan + 1;
+  559                stop_1_flag = stop_1_int;
+  560                P77 = 1;
+  561              }
+  562              break;
+  563            case stop_1_int:
+  564              parking_distante += (L_value + R_value) / 2;
+  565              if (parking_distante >= 5000)
+  566              {
+  567                parking_distante = 0;
+  568                stop_1_flag = stop_1_no;
+  569                P77 = 0;
+  570              }
+  571              break;
+  572            }
+  573            if (ganhuangguan >= 2)
+  574            {
+  575              expited_L_R = 0;
+  576            }
+  577          }*/
+  578          
+  579          /*十字检测*/
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 10  
+
+  580          /*#define Cross_int 1
+  581          #define Cross_out 2
+  582          #define no_Cross 0
+  583          #define Cross_r_out 3
+  584          int Cross_Flag = 0;
+  585          int32 Cross_Distante = 0;
+  586          void Cross()
+  587          {
+  588            switch (Cross_Flag)
+  589            {
+  590            case no_Cross:
+  591              if (ad_answer[0] >= 90 && ad_answer[4] >= 90 && ad_answer[2] >= 100 && (ad_answer[1]+ad_answer[3] ) >
+             - 100 )
+  592              {
+  593          
+  594                Cross_Flag = Cross_int;
+  595                P77=1;
+  596              }
+  597              break;
+  598            case Cross_int:
+  599              Cross_Distante += (L_value + R_value) / 2;
+  600              if (Cross_Distante > 25000)
+  601              {
+  602                Cross_Flag = Cross_out;
+  603                Cross_Distante = 0;
+  604              }
+  605              break;
+  606            case Cross_out:
+  607              AD_out = (ad_answer[1] - ad_answer[3]) / (ad_answer[2] + ad_answer[1]) * 250;
+  608              if (ad_answer[0] >= 90 && ad_answer[4] >= 90 && ad_answer[2] >= 100 && (ad_answer[1]+ad_answer[3] ) >
+             - 100 )
+  609              {
+  610                Cross_Flag = no_Cross;
+  611                P77=0;
+  612              }
+  613              break;
+  614            case Cross_r_out:
+  615              // Cross_Distante += (L_value + R_value) / 2;
+  616              if (ad_answer[0] >= 90 && ad_answer[4] >= 90 && ad_answer[2] >= 150 && ad_answer[1] > 90 && ad_answer
+             -[3] >= 90)
+  617              {
+  618                Cross_Flag = no_Cross;
+  619                Cross_Distante = 0;
+  620              }
+  621              break;
+  622            }
+  623          }*/
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =      3362     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =       428         12
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =       195     ------
+C251 COMPILER V5.60.0,  AD                                                                 14/06/24  16:35:51  PAGE 11  
+
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

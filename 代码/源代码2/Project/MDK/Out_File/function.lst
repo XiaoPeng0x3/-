@@ -1,0 +1,118 @@
+C251 COMPILER V5.60.0,  function                                                           14/06/24  16:35:51  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE function
+OBJECT MODULE PLACED IN .\Out_File\function.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\CODE\function.c XSMALL INTR2 WARNINGLEVEL(0) BROWSE INCDIR(..\..\Li
+                    -braries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src
+                    -) DEBUG PRINT(.\Out_File\function.lst) TABS(2) OBJECT(.\Out_File\function.obj) 
+
+stmt  level    source
+
+    1          /*******************************************************************************
+    2           * 菜单   function.c
+    3           * file name:          function.c
+    4           * description:        菜单
+    5           * author:             ***
+    6           * version：            v0.0.1
+    7           * date：               2022.02.22
+    8           * note:
+    9           *******************************************************************************/
+   10          #include "function.h"
+   11          void menu()
+   12          {
+   13   1        if (!KEY1)
+   14   1        {
+   15   2      
+   16   2          // L_Ki+= 0.005;
+   17   2      
+   18   2          while (!KEY1)
+   19   2          {
+   20   3          }
+   21   2        }
+   22   1        if (!KEY2)
+   23   1        {
+   24   2      
+   25   2          // L_Ki -= 0.005;
+   26   2      
+   27   2          while (!KEY2)
+   28   2          {
+   29   3          }
+   30   2        }
+   31   1        if (!KEY3)
+   32   1        {
+   33   2          // L_Kp+= 0.005;
+   34   2          R_Kp += 0.1;
+   35   2          // coefficient += 0.001;
+   36   2          while (!KEY3)
+   37   2          {
+   38   3          }
+   39   2        }
+   40   1        if (!KEY4)
+   41   1        {
+   42   2          // L_Kp-= 0.005;
+   43   2          R_Kp -= 0.1;
+   44   2          // expited_L -= 100;
+   45   2          while (!KEY4)
+   46   2          {
+   47   3          }
+   48   2        }
+   49   1        if (!KEY5)
+   50   1        {
+   51   2      
+   52   2          // expited_L -= 100;
+   53   2          expited_L_R += 20;
+   54   2          while (!KEY5)
+   55   2          {
+   56   3          }
+   57   2        }
+C251 COMPILER V5.60.0,  function                                                           14/06/24  16:35:51  PAGE 2   
+
+   58   1        if (!KEY6)
+   59   1        {
+   60   2      
+   61   2          // expited_L -= 100;
+   62   2          expited_L_R -= 20;
+   63   2          while (!KEY6)
+   64   2          {
+   65   3          }
+   66   2        }
+   67   1        if (!KEY7)
+   68   1        {
+   69   2      
+   70   2          while (!KEY7)
+   71   2          {
+   72   3          }
+   73   2        }
+   74   1        if (!KEY8)
+   75   1        {
+   76   2      
+   77   2          while (!KEY8)
+   78   2          {
+   79   3          }
+   80   2        }
+   81   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       111     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =    ------     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =    ------     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

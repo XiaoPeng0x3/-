@@ -1,0 +1,125 @@
+C251 COMPILER V5.60.0,  PID                                                                14/06/24  16:35:50  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE PID
+OBJECT MODULE PLACED IN .\Out_File\PID.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\CODE\PID.c XSMALL INTR2 WARNINGLEVEL(0) BROWSE INCDIR(..\..\Librari
+                    -es\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src) DEB
+                    -UG PRINT(.\Out_File\PID.lst) TABS(2) OBJECT(.\Out_File\PID.obj) 
+
+stmt  level    source
+
+    1          #include "PID.h"
+    2          #include "math.h"
+    3          float error_prev[3] = {0};
+    4          float error_last[3] = {0};
+    5          float error[3];
+    6          float coefficient = STEER_P_COEFFICIENT;   //动态P的系数  0.0945  0.101     0.125  0.15
+    7          float coefficient_d = STEER_D_COEFFICIENT; //动态D的系数 0.154 0.17 0.19  0.5
+    8          float Kb = 0.0;                            //抗饱和系数0.1~3.0*Ki/Kd
+    9          /*----------------------------------------------------------------
+   10          * @brief  PID抗饱和检测函数
+   11          * @param  Kb:抗饱和系数
+   12          * @return constrain_error：抗饱和后的误差
+   13          ----------------------------------------------------------------*/
+   14          float intergral_constrain(float out, float max, float min)
+   15          {
+   16   1          float constrain_error;
+   17   1          if (out > max)
+   18   1          {
+   19   2              constrain_error = max;
+   20   2          }
+   21   1          else
+   22   1          {
+   23   2              if (out < min)
+   24   2              {
+   25   3                  constrain_error = min;
+   26   3              }
+   27   2              else
+   28   2              {
+   29   3                  constrain_error = out;
+   30   3              }
+   31   2          }
+   32   1          return constrain_error - out;
+   33   1      }
+   34          /*----------------------------------------------------------------
+   35          @brief：增量式PID计算
+   36          @author : AgainstWar
+   37          @param value 实际值
+   38          @param target 目标值
+   39          @param Kp 比例系数
+   40          @param Ki 积分系数
+   41          @param Kd 微分系数
+   42          @return output 计算后的PID输出值
+   43          @用法：pid_calculation(12); //计算当前值为12时PID的输出值
+   44          ----------------------------------------------------------------*/
+   45          float pid_calculation_1(float Kp, float Ki, float Kd, int16 value, int16 target, int16 motor)
+   46          {
+   47   1      
+   48   1          float output[3] = {0}; // PID输出值
+   49   1          // Kb = 2.8 * Ki / Kd;
+   50   1          error[motor] = target - value;
+   51   1          Kp *= error[motor] - error_last[motor];
+   52   1          Ki *= error[motor];
+   53   1          Kd *= error[motor] - 2 * error_last[motor] + error_prev[motor]; //微分值
+   54   1          // Ki += Kb * intergral_constrain(output[motor], 100, -300);           //抗饱和积分
+   55   1          output[motor] = Kp + Ki + Kd; //输出值
+   56   1          error_prev[motor] = error_last[motor];
+   57   1          error_last[motor] = error[motor]; //误差值更新
+C251 COMPILER V5.60.0,  PID                                                                14/06/24  16:35:50  PAGE 2   
+
+   58   1      
+   59   1          return output[motor]; //输出值
+   60   1      }
+   61          /*----------------------------------------------------------------
+   62          @brief：位置式PID计算
+   63          @author : ***
+   64          @param value1 实际值
+   65          @return output 计算后的PID输出值
+   66          ----------------------------------------------------------------*/
+   67          float pid_calculation_2(float kp, float kd, float value1)
+   68          {
+   69   1          float error, output_1, target, increment_p = 0, increment_d = 0;
+   70   1          static float last_error = 0.0;
+   71   1          target = 0.0;
+   72   1          error = target - value1;
+   73   1          if (ad_answer[0] - ad_answer[2] > 0 || ad_answer[4] - ad_answer[2] > 0) // if(fabs(error)>=10&&fabs(a
+             -d_anwer[1]-ad_anwer[3])>=35)
+   74   1          {
+   75   2              increment_d = 0;
+   76   2              increment_p = fabs(error * coefficient);
+   77   2          }
+   78   1          else
+   79   1          {
+   80   2      
+   81   2              increment_d = fabs(error * coefficient_d);
+   82   2              increment_p = 0;
+   83   2          }
+   84   1          output_1 = (kp + increment_p) * error + (kd + increment_d) * (error - last_error);
+   85   1          last_error = error;
+   86   1          return output_1;
+   87   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       399     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =        52         46
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        76     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

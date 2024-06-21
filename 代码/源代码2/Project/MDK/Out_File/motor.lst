@@ -1,0 +1,206 @@
+C251 COMPILER V5.60.0,  motor                                                              14/06/24  16:35:51  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE motor
+OBJECT MODULE PLACED IN .\Out_File\motor.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\CODE\motor.c XSMALL INTR2 WARNINGLEVEL(0) BROWSE INCDIR(..\..\Libra
+                    -ries\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src) D
+                    -EBUG PRINT(.\Out_File\motor.lst) TABS(2) OBJECT(.\Out_File\motor.obj) 
+
+stmt  level    source
+
+    1          /*******************************************************************************
+    2           * 电机控制程序   motor.c
+    3           * file name:          motor.c
+    4           * description:        电机控制程序
+    5           * author:             ***,AgainstWar
+    6           * version：            v1.0.2
+    7           * date：               2022.02.27
+    8           * note:
+    9           *******************************************************************************/
+   10          #include "motor.h"
+   11          #include "math.h"
+   12          #define PWM_base_duty 2000
+   13          int32 speed_L = 0;
+   14          int32 speed_R = 0;
+   15          int16 speed = 0;
+   16          int16 L_value;
+   17          int16 R_value;
+   18          int16 limit = 9500; //限幅值
+   19          int16 expited_L_R = 250;
+   20          float L_Kp = MOTOR_P, L_Ki = MOTOR_I, L_Kd = MOTOR_D; // 1.99 1.2  10.0 0.96  i=1  d=3  p=10
+   21          float R_Kp = MOTOR_P, R_Ki = MOTOR_I, R_Kd = MOTOR_D; // 3.89
+   22          float K = 10.8;                           //轮距10.8cm
+   23          float L = 20.4;                           //轴距20.4cm
+   24          float a = 1.90;                           //中心到主销距离
+   25          int32 L_duty;                             //左电机PWM占空比
+   26          int32 R_duty;                             //右电机PWM占空比
+   27          uint16 dat[20];
+   28          /*直道加速，弯道减速变量*/
+   29          int32 count_encode_L = 0;
+   30          int32 count_encode_R = 0;
+   31          int16 straight_timer = 0;
+   32          int16 straight_flag = 0;
+   33          float speed_transition = 3;
+   34          int16 speed_add_time = 5;
+   35          int16 speed_add = 50;
+   36          int16 encoder_ex = 400;
+   37          int real_steer_difference;
+   38          int real_steer_difference_1;
+   39          uint32 count_motor = 0;
+   40          void motor_calculation()
+   41          {
+   42   1          // L_value=- L_value;
+   43   1          // R_value=- R_value;
+   44   1          speed_L += (int32)pid_calculation_1(L_Kp, L_Ki, L_Kd, L_value, expited_L_R, 0);
+   45   1          speed_R += (int32)pid_calculation_1(R_Kp, R_Ki, R_Kd, R_value, expited_L_R, 1);
+   46   1      }
+   47          /***差速***/
+   48          void motor_differential()
+   49          {
+   50   1          int16 adjust_steer;
+   51   1          float adjust_steer_1;
+   52   1          float adjust_steer_2;
+   53   1          float angle, radian, speed_dif;
+   54   1         
+   55   1          if (fabs(adjust_steer) > 30) //误差大小判断是否进入
+   56   1          {
+   57   2               adjust_steer_1 = adjust_steer / 10;
+C251 COMPILER V5.60.0,  motor                                                              14/06/24  16:35:51  PAGE 2   
+
+   58   2              angle = fabs(adjust_steer) * 0.467;
+   59   2              radian = tan(angle * 0.0174);
+   60   2              if (fabs(adjust_steer) > 60) //大弯
+   61   2              {
+   62   3                  adjust_steer_2 = 1.5*pow(3, adjust_steer_1);
+   63   3                  /*adjust_steer_2 /= 2;
+   64   3                  adjust_steer_2*=1.5;*/
+   65   3                  speed_dif = 3 * (float)adjust_steer_2 * radian * radian;
+   66   3              }
+   67   2              else
+   68   2              {
+   69   3                  adjust_steer_2 = pow(2, adjust_steer_1);
+   70   3                  adjust_steer_2 *= 5.6;
+   71   3                  speed_dif = 3 * (float)adjust_steer_2 * radian * radian;
+   72   3              }
+   73   2      
+   74   2              if (AD_out >= 0)
+   75   2              {
+   76   3                  speed_L = (speed_L + speed_dif);
+   77   3              }
+   78   2              if (AD_out < 0)
+   79   2              {
+   80   3                  speed_R = (speed_R + speed_dif);
+   81   3              }
+   82   2              if (stop_flag != 0)
+   83   2              {
+   84   3      
+   85   3                  speed_L = 500;
+   86   3                  speed_R =0;
+   87   3              }
+   88   2          }
+   89   1      }
+   90          void Motor_Caculate()
+   91          {
+   92   1          //直道加速
+   93   1          if (fabs(AD_out) <= speed_transition && straight_flag == 0) //偏差小的时候，要延时之后加
+             -速
+   94   1          {
+   95   2              straight_timer++;
+   96   2              if (straight_timer >= speed_add_time) // 1秒定时
+   97   2              {
+   98   3                  straight_timer = 0;
+   99   3                  straight_flag = 1; //加速标志位
+  100   3              }
+  101   2          }
+  102   1          if (fabs(AD_out) > speed_transition) //只要偏差大，就清零计数，标志非直道
+  103   1          {
+  104   2              straight_timer = 0;
+  105   2              straight_flag = 0;
+  106   2          }
+  107   1          if (straight_flag == 1)
+  108   1              expited_L_R = 300; //直道加速
+  109   1          if (straight_flag == 0)
+  110   1              expited_L_R = 280; //弯道正常
+  111   1          if (AD_out > 15)
+  112   1              expited_L_R = 260;
+  113   1      }
+  114          /*----------------------------------------------------------------
+  115          * @brief  电机控制函数
+  116          * @param  power:最终计算电机功率(20.0~100.0)
+  117          * @param  Direction:电机转动方向
+  118          * @return void
+  119          * @author AgainstWar
+  120          * @date   2022/02/27
+  121          * @Sample usage: motor_control_R(28.5,1);   右电机28.5%功率运行,正转
+  122          ----------------------------------------------------------------*/
+C251 COMPILER V5.60.0,  motor                                                              14/06/24  16:35:51  PAGE 3   
+
+  123          void motor_control_R(int32 power_R)
+  124          {
+  125   1          R_duty = power_R;
+  126   1          if (R_duty < 0)
+  127   1          {
+  128   2              DIR_R = 1;
+  129   2              R_duty *= -1;
+  130   2          }
+  131   1          else
+  132   1              DIR_R = 0;
+  133   1          if (R_duty > limit) //限幅
+  134   1              R_duty = limit;
+  135   1          pwm_duty(PWM_R, R_duty);
+  136   1      }
+  137          //----------------------同上---------
+  138          void motor_control_L(int32 power_L)
+  139          {
+  140   1          L_duty = power_L;
+  141   1          if (L_duty < 0)
+  142   1          {
+  143   2              DIR_L = 1;
+  144   2              L_duty *= -1;
+  145   2          }
+  146   1          else
+  147   1              DIR_L = 0;
+  148   1          if (L_duty > limit) //限幅
+  149   1              L_duty = limit;
+  150   1          pwm_duty(PWM_L, L_duty);
+  151   1      }
+  152          void motor_test()
+  153          {
+  154   1          // Motor_Caculate();//直道加速 弯道减速
+  155   1          if (count_motor == 0) //判断第一次进入
+  156   1          {
+  157   2              expited_L_R = 200;
+  158   2          }
+  159   1          motor_calculation();
+  160   1          if (Y_steer == 0)
+  161   1          {
+  162   2              motor_differential();
+  163   2          }
+  164   1          motor_control_L(speed_L);
+  165   1          motor_control_R(speed_R);
+  166   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       706     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =       132         14
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =       168     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

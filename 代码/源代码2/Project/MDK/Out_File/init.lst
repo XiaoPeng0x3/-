@@ -1,0 +1,126 @@
+C251 COMPILER V5.60.0,  init                                                               14/06/24  16:35:50  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE init
+OBJECT MODULE PLACED IN .\Out_File\init.obj
+COMPILER INVOKED BY: D:\Keil_v5\C251\BIN\C251.EXE ..\CODE\init.c XSMALL INTR2 WARNINGLEVEL(0) BROWSE INCDIR(..\..\Librar
+                    -ies\libraries;..\..\Libraries\seekfree_libraries;..\..\Libraries\seekfree_peripheral;..\CODE;..\USER\inc;..\USER\src) DE
+                    -BUG PRINT(.\Out_File\init.lst) TABS(2) OBJECT(.\Out_File\init.obj) 
+
+stmt  level    source
+
+    1          #include "init.h"
+    2          #define BEEP P77 //蜂鸣器
+    3          #define init_freq 16000
+    4          #define init_duty 2500
+    5          void beep(uint8 n)
+    6          {
+    7   1          uint8 j;
+    8   1          BEEP = 0; //蜂鸣器置低
+    9   1          for (j = 0; j < n; j++)
+   10   1          {
+   11   2              BEEP = 1;
+   12   2              delay_ms(10);
+   13   2              BEEP = 0;
+   14   2              delay_ms(200);
+   15   2          }
+   16   1      }
+   17          /*-----------------------------
+   18           * @brief  系统初始化
+   19           * @param  void
+   20           * @retval void
+   21           * @author AgainstWar
+   22           * @date   2022/02/27
+   23           * @Sample usage: system_init();
+   24           *----------------------------*/
+   25          void system_init()
+   26          {
+   27   1          int i;
+   28   1          gpio_mode(P7_7, GPO_PP); //设置蜂鸣器为推挽
+   29   1          gpio_mode(P3_2, GPIO);
+   30   1          P32 = 0;
+   31   1          BEEP = 0; //蜂鸣器置低
+   32   1          // ADC管脚初始化
+   33   1          adc_init(ADC_P00, ADC_12BIT);  //左1
+   34   1          adc_init(ADC_P01, ADC_12BIT);  //左中
+   35   1          adc_init(ADC_P05, ADC_12BIT);  //中
+   36   1          adc_init(ADC_P06, ADC_12BIT);  //右中
+   37   1          adc_init(ADC_P13, ADC_12BIT);  //右1
+   38   1          gyro_zero_process();           //陀螺仪
+   39   1          pwm_init(PWM_L, init_freq, 0); //初始化L电机PWM f:16000Hz,duty:0%
+   40   1          pwm_init(PWM_R, init_freq, 0); //初始化R电机PWM f:16000Hz,duty:0%
+   41   1          gpio_pull_set(P6_6, PULLUP);
+   42   1          DIR_R = 0;
+   43   1          gpio_pull_set(P6_0, PULLUP);
+   44   1          DIR_L = 0;                    //电机方向初始化
+   45   1          pwm_init(pwm_steer, 50, 750); //初始化舵机 f:50HZ duty7.5%
+   46   1          pit_timer_ms(TIM_4, 4);       //初始化定时器
+   47   1          ctimer_count_init(CTIM3_P04);
+   48   1          ctimer_count_init(CTIM0_P34); //编码器初始化
+   49   1      
+   50   1          //    seekfree_wireless_init();//串口
+   51   1          uart_init(UART_4, UART4_RX_P02, UART4_TX_P03, 115200, TIM_2);
+   52   1          oled_init();
+   53   1          oled_fill(0x00);
+   54   1          oled_p8x16str(32, 0, "SYS_CHECK"); //屏幕显示
+   55   1      }
+   56          /*-----------------------------
+   57           *  @brief 舵机测试函数
+C251 COMPILER V5.60.0,  init                                                               14/06/24  16:35:50  PAGE 2   
+
+   58           *  @param  void
+   59           *  @return void
+   60           * @author ***
+   61           * @date 2022/03/01
+   62           * @Sample usage: steer_test()；
+   63           *----------------------------*/
+   64          void steer_test()
+   65          {
+   66   1          int8 i = 0;
+   67   1      
+   68   1          while (i < 10)
+   69   1          {
+   70   2              i++;
+   71   2              delay_ms(20);
+   72   2              pwm_duty(pwm_steer, pwm_duty_center + i * 5);
+   73   2          }
+   74   1          i = 0;
+   75   1          while (i < 20)
+   76   1          {
+   77   2              i++;
+   78   2              delay_ms(20);
+   79   2              pwm_duty(pwm_steer, pwm_duty_center + 50 - i * 5);
+   80   2          }
+   81   1          i = 0;
+   82   1          while (i < 10)
+   83   1          {
+   84   2              i++;
+   85   2              delay_ms(20);
+   86   2              pwm_duty(pwm_steer, pwm_duty_center - 50 + i * 5);
+   87   2          }
+   88   1          pwm_duty(pwm_steer, pwm_duty_center);
+   89   1      }
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =       412     ------
+  ecode size           =    ------     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =    ------     ------
+  xdata-const size     =    ------     ------
+  edata size           =    ------     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        10     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
